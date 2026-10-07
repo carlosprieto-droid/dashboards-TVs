@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Ventas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* Pensado para TV 16:9 (1920x1080 / 4K). Todo escala con vw. Solo modo oscuro. */
+  :root {
+    color-scheme: dark;
+    /* Identidad Gelt Solutions (presentación comercial 2026) */
+    --bg:        #0F2235;   /* azul noche */
+    --surface-1: #063B5D;   /* azul Gelt */
+    --surface-2: #12465F;
+    --border:    #1E4E6E;
+    --text-primary:   #ffffff;
+    --text-secondary: #D6D6D6;
+    --text-muted:     #8FA7B5;
+    --grid:      #1E4E6E;
+    --brand-red: #FF344C;   /* rojo Gelt (etiquetas) */
+    --series-1:  #1AB8C4;   /* cian Gelt: periodo actual */
+    --series-base: #3B6478; /* año anterior / referencia */
+    --series-2:  #FFC000;
+    --series-3:  #92D050;
+    --series-4:  #FF344C;
+    --good:      #92D050;
+    --warning:   #FFC000;
+    --critical:  #FF344C;
+    --po:        #A6E6EA;   /* esperando PO: cian claro */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text-primary);
+    font-family: Lato, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 1vw; overflow: hidden; cursor: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; padding: 2.2vw 2.6vw 1.6vw; gap: 1.6vw; }
+
+  /* Cabecera */
+  header { display: flex; align-items: center; gap: 2vw; }
+  header .logo { height: 4.2vw; width: auto; }
+  header .title { font-family: Montserrat, sans-serif; font-size: 1.9em; font-weight: 800; }
+  .hero .value, .tile .value, .kpi .value, .kam-pct, .kam-name, header .clock, .alert .big { font-family: Montserrat, sans-serif; }
+  header .sub { font-size: 1.2em; color: var(--text-secondary); }
+  header .spacer { flex: 1; }
+  header .status { font-size: 1em; color: var(--text-muted); text-align: right; line-height: 1.4; }
+  header .clock { font-size: 2.6em; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .dots { display: flex; gap: .6vw; }
+  .dots span { width: .7vw; height: .7vw; border-radius: 50%; background: var(--border); }
+  .dots span.on { background: var(--text-primary); }
+  .timer { position: fixed; left: 0; bottom: 0; height: .25vw; background: var(--brand-red); width: 0; }
+  .demo-badge { font-size: .9em; font-weight: 700; color: #0F2235; background: var(--warning); padding: .2em .6em; border-radius: .3em; }
+  .stale { color: var(--warning); }
+
+  /* Vistas */
+  .views { position: relative; min-height: 0; }
+  .view { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 1.4vw;
+          opacity: 0; transform: translateY(1vw); transition: opacity .8s, transform .8s; }
+  .view.on { opacity: 1; transform: none; }
+  .view h2 { align-self: flex-start; font-family: Montserrat, sans-serif; font-size: 1.35em; font-weight: 700; color: #fff; background: var(--brand-red); padding: .35em .9em; border-radius: .35em; }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 1vw; padding: 1.8vw 2vw; min-height: 0; }
+
+  /* Resumen */
+  .summary { display: grid; grid-template-columns: 1.35fr 1fr; grid-template-rows: 1fr 1fr; gap: 1.4vw; flex: 1; min-height: 0; }
+  .hero { grid-row: span 2; display: flex; flex-direction: column; justify-content: center; gap: 1.6vw; }
+  .label { font-size: 1.5em; color: var(--text-secondary); font-weight: 500; }
+  .hero .value { white-space: nowrap; font-size: 6.6em; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+  .tile .value { font-size: 4.2em; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
+  .tile { display: flex; flex-direction: column; justify-content: center; gap: .8vw; }
+  .note { font-size: 1.3em; color: var(--text-secondary); }
+  .pill { display: inline-flex; align-items: center; gap: .5em; font-size: 1.3em; font-weight: 600; padding: .3em .8em; border-radius: 2em; background: var(--surface-2); align-self: flex-start; }
+  .pill i { font-style: normal; }
+  .meter { position: relative; height: 2.2vw; border-radius: 1.1vw; background: var(--surface-2); overflow: visible; }
+  .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 1.1vw; transition: width 1.2s; }
+  .meter .pace { position: absolute; top: -.6vw; bottom: -.6vw; width: .25vw; background: var(--text-primary); border-radius: .2vw; }
+  .meter-legend { display: flex; justify-content: space-between; font-size: 1.2em; color: var(--text-muted); }
+  .extra { display: grid; grid-template-columns: repeat(auto-fit, minmax(18vw, 1fr)); gap: 1.4vw; }
+
+  /* Gráficos */
+  .chart { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1vw; }
+  .chart svg { flex: 1; width: 100%; min-height: 0; overflow: visible; }
+  .legend { display: flex; gap: 2vw; font-size: 1.3em; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: .5em; }
+  .legend b { width: 1.1em; height: 1.1em; border-radius: .25em; display: inline-block; }
+  svg text { fill: var(--text-muted); font-family: Lato, sans-serif; }
+  svg .val { font-family: Montserrat, sans-serif; }
+  svg .val { fill: var(--text-primary); font-weight: 600; }
+  svg .lbl { fill: var(--text-secondary); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 1.6em; }
+  th { text-align: left; color: var(--text-muted); font-weight: 500; font-size: .8em; padding: .5em .8em; border-bottom: 1px solid var(--border); }
+  td { padding: .55em .8em; border-bottom: 1px solid var(--border); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+
+  /* Esfuerzo comercial */
+  .kam-top { display: grid; grid-template-columns: 1.9fr repeat(5, 1fr); gap: 1.6vw; align-items: end; padding: 1.4vw 2vw; }
+  .kpi { display: flex; flex-direction: column; gap: .4vw; }
+  .kpi .label { font-size: 1.15em; }
+  .kpi .value { font-size: 2.1em; font-weight: 700; white-space: nowrap; }
+  .hero-kpi .value { font-size: 4em; font-weight: 800; line-height: 1; }
+  .hero-kpi .pill { white-space: nowrap; font-size: 1.1em; }
+  .kam-list { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: .3vw; padding: 1.2vw 2vw; min-height: 0; }
+  .kam-row { display: grid; grid-template-columns: 9vw 1fr 6.5vw 11vw; grid-template-rows: auto auto; column-gap: 1.4vw; align-items: center; }
+  .kam-name { font-size: 1.4em; font-weight: 700; grid-row: span 2; }
+  .kam-bar { position: relative; height: 1.6vw; background: var(--surface-2); border-radius: .5vw; }
+  .kam-bar .seg { position: absolute; top: 0; bottom: 0; border-radius: .5vw; }
+  .kam-bar .fact { left: 0; background: var(--series-1); }
+  .kam-bar .po { background: var(--po); }
+  .kam-bar .pace { position: absolute; top: -.45vw; bottom: -.45vw; width: .22vw; background: var(--text-primary); border-radius: .2vw; }
+  .kam-pct { font-size: 1.7em; font-weight: 800; text-align: right; }
+  .kam-st { font-size: 1.2em; font-weight: 600; }
+  .kam-st i { font-style: normal; }
+  .kam-sub { grid-column: 2 / span 3; font-size: 1em; color: var(--text-muted); margin-top: .2vw; }
+  .kam-sub b { color: var(--text-secondary); font-weight: 600; }
+
+  /* Avisos */
+  .alert { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+           gap: 2vw; background: rgba(15, 34, 53, .94); z-index: 10; }
+  .alert.on { display: flex; animation: flash .35s ease-out 3; }
+  .alert .big { font-size: 11em; font-weight: 900; letter-spacing: -.02em; }
+  .alert .small { font-size: 2.6em; color: var(--text-secondary); font-weight: 500; }
+  @keyframes flash { 0% { background: rgba(26, 184, 196, .6); } 100% { background: rgba(15, 34, 53, .94); } }
+  .error { font-size: 2em; color: var(--text-secondary); margin: auto; text-align: center; }
+
+  /* ===== Estilo HUD / neón sobre identidad Gelt ===== */
+  body { background: radial-gradient(120vw 80vw at 70% -10%, #0B3552 0%, #0F2235 45%, #0A1826 100%); }
+  .card { position: relative; background: linear-gradient(180deg, rgba(6,59,93,.62), rgba(6,59,93,.28));
+          border: 1px solid rgba(26,184,196,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 1vw 3vw rgba(0,0,0,.25); }
+  .card::before, .card::after { content: ""; position: absolute; width: 1.4vw; height: 1.4vw; pointer-events: none; }
+  .card::before { top: -1px; left: -1px; border-top: 2px solid var(--series-1); border-left: 2px solid var(--series-1); border-top-left-radius: 1vw; }
+  .card::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--brand-red); border-right: 2px solid var(--brand-red); border-bottom-right-radius: 1vw; }
+  .label { text-transform: uppercase; letter-spacing: .09em; font-family: Montserrat, sans-serif; font-weight: 600; font-size: 1.15em; color: var(--text-muted); }
+  .hero .value, .tile .value, .hero-kpi .value { text-shadow: 0 0 .5em rgba(26,184,196,.35); }
+  .tile.accent { padding-left: 2.6vw; }
+  .tile.accent::before { top: 1.6vw; bottom: 1.6vw; left: 1.1vw; width: .3vw; height: auto; border: 0; border-radius: .2vw;
+                         background: var(--accent); box-shadow: 0 0 1vw var(--accent); }
+  .hero { display: grid; grid-template-columns: 1fr auto; grid-template-rows: none; align-items: center; column-gap: 2vw; }
+  .hero-main { display: flex; flex-direction: column; gap: 1.4vw; }
+  .ring { width: 19vw; height: 19vw; overflow: visible; }
+  .ring text { font-family: Montserrat, sans-serif; }
+  .view h2 { box-shadow: 0 0 1.2vw rgba(255,52,76,.45); letter-spacing: .06em; text-transform: uppercase; }
+  .timer { background: linear-gradient(90deg, var(--series-1), var(--brand-red)); box-shadow: 0 0 .8vw var(--series-1); }
+  .kam-bar { background: rgba(255,255,255,.06); }
+  .kam-bar .fact { background: linear-gradient(90deg, #0E8FA0, #1AB8C4); box-shadow: 0 0 1vw rgba(26,184,196,.55); }
+  .kam-bar .po { background: repeating-linear-gradient(135deg, #A6E6EA 0 .5vw, #7fd4da .5vw 1vw); }
+  .kam-bar .pace, .meter .pace { box-shadow: 0 0 .6vw #fff; }
+  .kam-top { border-left: 0; }
+  header .title { letter-spacing: .08em; text-transform: uppercase; }
+  .dots span.on { background: var(--series-1); box-shadow: 0 0 .6vw var(--series-1); }
+  .pill { background: rgba(255,255,255,.06); border: 1px solid currentColor; }
+  .hist-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.3fr 1fr; gap: 1.4vw; }
+  .hist-grid .chart { padding: 1.4vw 1.6vw; }
+  .kam-top .note { font-size: 1em; color: var(--text-muted); }
+  .kam-top .label { white-space: nowrap; font-size: 1em; letter-spacing: .06em; }
+  .split { padding: 1.2vw 2vw; display: flex; flex-direction: column; gap: .8vw; flex: none; }
+  .split-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .split-total { font-family: Montserrat, sans-serif; font-weight: 800; font-size: 2em; text-shadow: 0 0 .5em rgba(26,184,196,.35); }
+  .split-bar { display: flex; gap: 3px; height: 1.6vw; border-radius: .5vw; overflow: hidden; }
+  .split-bar .seg { height: 100%; }
+  .split-leg { display: flex; gap: 2.4vw; font-size: 1.3em; color: var(--text-secondary); }
+  .split-leg span { display: inline-flex; align-items: center; gap: .5em; }
+  .split-leg b { width: 1em; height: 1em; border-radius: .25em; display: inline-block; }
+  .split-leg strong { color: #fff; font-family: Montserrat, sans-serif; }
+  .split-leg em { font-style: normal; color: var(--text-muted); }
+  .hero .value { font-size: 6em; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <img class="logo" src="assets/gelt-logo.png" alt="Gelt Solutions">
+    <div>
+      <div class="title">Ventas</div>
+      <div class="sub" id="period">—</div>
+    </div>
+    <span class="demo-badge" id="demo" hidden>DATOS DE EJEMPLO</span>
+    <div class="spacer"></div>
+    <div class="dots" id="dots"></div>
+    <div class="status" id="status">Cargando…</div>
+    <div class="clock" id="clock">--:--</div>
+  </header>
+  <main class="views" id="views"><div class="error">Cargando datos…</div></main>
+</div>
+<div class="timer" id="timer"></div>
+<div class="alert" id="alert"><div class="big" id="alertBig"></div><div class="small" id="alertSmall"></div></div>
+
+<script src="cms.js"></script>
+<script>
+// ===================== CONFIGURACIÓN =====================
+const CONFIG = {
+  csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHRNDDgG_8_D2IXqbMNs-lrYgoJpeDZJLCSjCm1zI7fvXcvqEg0HMN-WcbtRtb-1w9gHKd7D77foHM/pub?gid=940809333&single=true&output=csv",
+  refreshMin: 5,       // cada cuánto se relee el Sheet
+  viewSec: 20,         // segundos por vista
+  sound: true,         // sonido en avisos
+  // Horario de oficina (TV encendida L-V 9-19): fuera de él, sin sonido
+  officeDays: [1, 2, 3, 4, 5], officeFrom: 9, officeTo: 19
+};
+const params = new URLSearchParams(location.search);
+const DEMO = params.has("demo");
+if (params.has("csv")) CONFIG.csvUrl = params.get("csv"); // pruebas con un CSV alternativo
+if (params.has("view")) CONFIG.viewSec = 1e9; // ?view=N congela una vista (para revisar)
+
+// ===================== UTILIDADES =====================
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else if (c !== "\r") cell += c;
+  }
+  row.push(cell); rows.push(row);
+  return rows.map(r => r.map(c => c.trim()));
+}
+
+// "259.128€" -> 259128 · "6,5%" -> 6.5 · "-193.372 €" -> -193372
+function num(s) {
+  if (s == null) return null;
+  const t = String(s).replace(/[€%\s]/g, "").replace(/\./g, "").replace(",", ".");
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  return parseFloat(t);
+}
+const isPct = s => /%/.test(s || "");
+
+const nf0 = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function eur(v) { return nf0.format(Math.round(v)) + " €"; }
+function compact(v) {
+  const a = Math.abs(v), s = v < 0 ? "-" : "";
+  if (a >= 1e6) return s + nf2.format(a / 1e6) + "M";
+  if (a >= 1e3) return s + nf0.format(a / 1e3) + "k";
+  return s + nf0.format(a);
+}
+function pct(v) { return (v >= 0 ? "+" : "−") + nf1.format(Math.abs(v)) + "%"; }
+
+// ===================== MODELO DE DATOS =====================
+// Pestaña Display:
+//  - Arriba: filas "Etiqueta,Valor" = KPIs (las 4 del reloj + las que añadas)
+//  - Una fila ",Mes" = periodo (p.ej. ",Septiembre")
+//  - Bloques: fila "[tipo] Título" + fila de cabeceras + filas de datos, hasta una fila vacía
+//    tipos: barras · linea · ranking · tabla
+function model(rows) {
+  const m = { period: null, kpis: [], blocks: [], kam: null };
+  let i = 0, lastTitle = "";
+  for (; i < rows.length; i++) {
+    const r = rows[i];
+    if (/^\[/.test(r[0] || "")) break;
+    if ((r[0] || "").toUpperCase() === "KAM") { i = parseKam(rows, i, lastTitle, m); continue; }
+    if (isMonthHeader(r)) { i = parseHist(rows, i, lastTitle, m); continue; }
+    if (/desglose/i.test(r[0] || "")) { i = parseParts(rows, i, m); continue; }
+    if (!r[0] && r[1] && num(r[1]) == null && !m.period) { m.period = r[1]; continue; }
+    if (r[0] && !r[1]) lastTitle = r[0];
+    if (r[0] && r[1] && num(r[1]) != null) m.kpis.push({ label: r[0], raw: r[1], value: num(r[1]) });
+  }
+  let cur = null;
+  for (; i < rows.length; i++) {
+    const r = rows[i], first = r[0] || "";
+    const mt = first.match(/^\[(\w+)\]\s*(.*)$/);
+    if (mt) { cur = { type: mt[1].toLowerCase(), title: mt[2] || "", head: null, data: [] }; m.blocks.push(cur); continue; }
+    if (!cur) continue;
+    if (r.every(c => !c)) { cur = null; continue; }
+    if (!cur.head) cur.head = r.filter((c, j) => c || j < 2);
+    else cur.data.push(r.slice(0, cur.head.length));
+  }
+  // KPIs conocidos (misma lógica que el TC001: primera coincidencia)
+  const find = w => m.kpis.find(k => k.label.toLowerCase().includes(w));
+  m.crec = find("crecimiento");
+  m.pend = m.kpis.find(k => k !== m.crec && k.label.toLowerCase().includes("pendiente"));
+  m.ytd  = m.kpis.find(k => k !== m.crec && k.label.toLowerCase().includes("acumulada"));
+  m.mes  = m.kpis.find(k => k.label.toLowerCase().includes("mensual"));
+  m.extra = m.kpis.filter(k => ![m.crec, m.pend, m.ytd, m.mes].includes(k));
+  if (m.hist && m.partsRaw && m.partsRaw.length >= 2)
+    m.hist.parts = m.partsRaw.map(p => ({ name: p.name, vals: p.vals.map((v, k) => m.hist.act[k] == null ? null : v) }));
+  return m;
+}
+
+// Tabla de comerciales: cabecera "KAM,OBJETIVO,VENTA,FACTURACION,ESPERANDO PO,AVANCE,FALTA".
+// La fila "B2B" es el total del equipo; el resto, un comercial por fila. Termina en un bloque "[..." o al final.
+// Devuelve el índice de la última fila consumida.
+function parseKam(rows, h, title, m) {
+  const head = rows[h].map(c => c.toUpperCase().replace(/\s+/g, " ").trim());
+  const col = name => head.findIndex(c => c.startsWith(name));
+  const C = { obj: col("OBJETIVO"), venta: col("VENTA"), fact: col("FACTURA"), po: col("ESPERANDO"), av: col("AVANCE"), falta: col("FALTA") };
+  const kam = { title: title || "Esfuerzo comercial", total: null, people: [] };
+  let i = h + 1;
+  for (; i < rows.length; i++) {
+    const r = rows[i];
+    if (/^\[/.test(r[0] || "") || isMonthHeader(r) || (r[0] && !r.slice(1).some(c => c))) { i--; break; }
+    if (!r[0] || num(r[C.obj]) == null) continue;
+    const get = k => C[k] >= 0 ? num(r[C[k]]) : null;
+    const p = { name: r[0], obj: get("obj"), venta: get("venta"), fact: get("fact"), po: get("po"), av: get("av"), falta: get("falta") };
+    if (p.venta != null && p.fact != null && p.po == null) p.po = Math.max(0, p.venta - p.fact);
+    if (p.av == null && p.obj) p.av = p.venta / p.obj * 100;
+    if (p.falta == null && p.obj != null) p.falta = p.obj - (p.venta || 0);
+    if (!kam.total && /^(b2b|total)/i.test(p.name)) kam.total = p; else kam.people.push(p);
+  }
+  if (kam.people.length) m.kam = kam;
+  return Math.min(i, rows.length - 1);
+}
+
+// Histórico mensual: fila de cabecera con los meses (enero…diciembre) y debajo filas
+// "Objetivo facturación mensual", "Objetivo facturación acumulada…", "Facturación mensual", "Facturación acumulada".
+const MES_NOMBRES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+function isMonthHeader(r) {
+  const c = r.slice(1).map(x => x.toLowerCase());
+  return c.includes("enero") && c.includes("diciembre");
+}
+function parseHist(rows, h, title, m) {
+  const head = rows[h].map(x => x.toLowerCase().trim());
+  const cols = MES_NOMBRES.map(n => head.indexOf(n));
+  const series = {}, parts = [];
+  let i = h + 1;
+  for (; i < rows.length; i++) {
+    const r = rows[i];
+    if (/^\[/.test(r[0] || "") || isMonthHeader(r) || r.every(c => !c)) break;
+    if (!r[0]) continue;
+    const l = r[0].toLowerCase().trim(), vals = cols.map(c => c >= 0 ? num(r[c]) : null);
+    // "Facturación mensual" / "Facturación acumulada" (sin más) = total compañía;
+    // "Facturación mensual B2B", "Facturación mensual Giftcards"… = desglose por línea
+    let key;
+    if (l.includes("objetivo")) key = l.includes("acumulad") ? "objAcc" : "obj";
+    else if (l.includes("acumulad")) key = /^facturaci[oó]n acumulada( total)?$/.test(l) ? "accAcc" : null;
+    else if (/^facturaci[oó]n mensual( total)?$/.test(l)) key = "act";
+    else { parts.push({ name: r[0].replace(/facturaci[oó]n( mensual)?/i, "").trim() || r[0], vals }); continue; }
+    if (key && !series[key]) series[key] = vals;
+  }
+  if (!series.act && parts.length) series.act = MES_NOMBRES.map((_, k) => parts.some(p => p.vals[k] != null) ? parts.reduce((a, p) => a + (p.vals[k] || 0), 0) : null);
+  if (!series.act && !series.accAcc) return i - 1;
+  // Meses sin cerrar: a partir del mes en curso, un 0 (o el acumulado repetido) es "sin dato"
+  const now = new Date(), cur = now.getMonth();
+  const act = (series.act || []).map((v, k) => k > cur || (k === cur && !v) ? null : v);
+  let acc = series.accAcc ? series.accAcc.map((v, k) => act[k] == null ? null : v) : null;
+  if (!acc) { let run = 0; acc = act.map(v => v == null ? null : (run += v)); }
+  const cut = vals => vals.map((v, k) => act[k] == null ? null : v);
+  m.hist = { title: (title || "Histórico de facturación").trim(), cols, obj: series.obj || [], objAcc: series.objAcc || [], act, acc,
+             parts: parts.length >= 2 ? parts.map(p => ({ name: p.name, vals: cut(p.vals) })) : [] };
+  return i - 1;
+}
+
+// Desglose por línea de negocio (fila título "Desglose facturación" y debajo una fila por línea,
+// con los meses en las mismas columnas que el histórico). Las filas "Total"/"B2B" son subtotales: no se apilan.
+function parseParts(rows, h, m) {
+  let cols = m.hist?.cols || MES_NOMBRES.map((_, k) => k + 1), i = h + 1;
+  if (rows[i] && isMonthHeader(rows[i])) { const hd = rows[i].map(x => x.toLowerCase().trim()); cols = MES_NOMBRES.map(n => hd.indexOf(n)); i++; }
+  const parts = [];
+  for (; i < rows.length; i++) {
+    const r = rows[i];
+    if (/^\[/.test(r[0] || "") || isMonthHeader(r)) break;
+    if (r.every(c => !c)) { if (parts.length) break; else continue; }
+    if (!r[0] || /^(total|b2b)\b/i.test(r[0].trim())) continue;
+    const vals = cols.map(c => c >= 0 ? num(r[c]) : null);
+    parts.push({ name: r[0].trim(), vals });
+  }
+  m.partsRaw = parts.filter(p => p.vals.some(v => v != null && v !== 0));
+  return i - 1;
+}
+
+// ===================== VISTAS =====================
+function daysInMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+function yearPace(d = new Date()) {
+  const start = new Date(d.getFullYear(), 0, 1), end = new Date(d.getFullYear() + 1, 0, 1);
+  return (d - start) / (end - start) * 100;
+}
+function paceStatus(p, pace) {
+  return p >= 100 ? ["var(--good)", "✓", "Cumplido"]
+       : p >= pace ? ["var(--good)", "▲", "En ritmo"]
+       : p >= pace * .8 ? ["var(--warning)", "●", "Algo por detrás"]
+       : ["var(--critical)", "▼", "Por detrás"];
+}
+
+// Esfuerzo comercial: una pantalla con el total del equipo + barra por comercial
+// (facturado + esperando PO sobre el objetivo anual, con la marca del ritmo del año)
+function viewKam(k) {
+  const pace = yearPace();
+  const people = [...k.people].sort((a, b) => (b.av || 0) - (a.av || 0));
+  const t = k.total || people.reduce((s, p) => ({ obj: s.obj + (p.obj || 0), venta: s.venta + (p.venta || 0), fact: s.fact + (p.fact || 0), po: s.po + (p.po || 0), falta: s.falta + (p.falta || 0) }), { obj: 0, venta: 0, fact: 0, po: 0, falta: 0 });
+  if (t.av == null) t.av = t.obj ? t.venta / t.obj * 100 : 0;
+  const ts = paceStatus(t.av, pace);
+  const kpi = (label, value, note = "") => `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div>${note ? `<div class="note">${note}</div>` : ""}</div>`;
+  const rows = people.map(p => {
+    const obj = p.obj || 1, f = Math.min(100, (p.fact || 0) / obj * 100), po = Math.min(100 - f, (p.po || 0) / obj * 100);
+    const st = paceStatus(p.av || 0, pace);
+    return `<div class="kam-row">
+      <div class="kam-name">${esc(p.name.charAt(0) + p.name.slice(1).toLowerCase())}</div>
+      <div class="kam-bar">
+        <div class="seg fact" style="width:${f}%"></div>
+        <div class="seg po" style="left:calc(${f}% + 3px);width:max(0px, calc(${po}% - 3px))"></div>
+        <div class="pace" style="left:${pace}%"></div>
+      </div>
+      <div class="kam-pct">${nf1.format(p.av || 0)}%</div>
+      <div class="kam-st" style="color:${st[0]}"><i>${st[1]}</i> ${st[2]}</div>
+      <div class="kam-sub">${compact(p.venta || 0)} de ${compact(p.obj || 0)} · faltan <b>${compact(Math.max(0, p.falta || 0))}</b></div>
+    </div>`;
+  }).join("");
+  return `
+    <h2>${esc(k.title.trim())} · ${new Date().getFullYear()}</h2>
+    <div class="card kam-top">
+      <div class="kpi hero-kpi"><div class="label">Avance equipo</div>
+        <div class="value">${nf1.format(t.av)}%</div>
+        <span class="pill" style="color:${ts[0]}"><i>${ts[1]}</i>${ts[2]} · ritmo del año ${nf0.format(pace)}%</span></div>
+      ${kpi("Objetivo", compact(t.obj) + " €")}
+      ${kpi("Venta", compact(t.venta) + " €")}
+      ${kpi("Facturado", compact(t.fact) + " €")}
+      ${kpi("Esperando PO", compact(t.po) + " €")}
+      ${kpi("Falta", compact(Math.max(0, t.falta)) + " €")}
+    </div>
+    <div class="card kam-list">
+      <div class="legend"><span><b style="background:var(--series-1)"></b>Facturado</span>
+        <span><b style="background:var(--po)"></b>Esperando PO</span>
+        <span><b style="background:var(--text-primary);width:.25em"></b>Ritmo del año</span>
+        <span style="margin-left:auto;color:var(--text-muted)">Avance = venta / objetivo anual</span></div>
+      ${rows}
+    </div>`;
+}
+
+// Anillo de progreso con brillo; marca blanca = ritmo del mes
+function ring(p, pace, color) {
+  const r = 80, c = 2 * Math.PI * r, dash = c * Math.min(100, p) / 100;
+  const a = (pace / 100) * 2 * Math.PI - Math.PI / 2, px = 100 + Math.cos(a) * r, py = 100 + Math.sin(a) * r;
+  const dots = Array.from({ length: 60 }, (_, i) => { const t = i / 60 * 2 * Math.PI; return `<circle cx="${100 + Math.cos(t) * 97}" cy="${100 + Math.sin(t) * 97}" r="1.3" fill="${i / 60 * 100 <= p ? color : "#1E4E6E"}"/>`; }).join("");
+  return `<svg class="ring" viewBox="0 0 200 200">
+    <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+    ${dots}
+    <circle cx="100" cy="100" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="16"/>
+    <circle cx="100" cy="100" r="${r}" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round"
+            stroke-dasharray="${dash} ${c}" transform="rotate(-90 100 100)" filter="url(#glow)"/>
+    <line x1="${100 + Math.cos(a) * (r - 13)}" y1="${100 + Math.sin(a) * (r - 13)}" x2="${100 + Math.cos(a) * (r + 13)}" y2="${100 + Math.sin(a) * (r + 13)}" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="104" text-anchor="middle" font-size="40" font-weight="800" style="fill:#fff">${nf0.format(p)}%</text>
+    <text x="100" y="130" text-anchor="middle" font-size="11" font-weight="600" style="fill:#8FA7B5" letter-spacing="1.5">DEL OBJETIVO</text>
+  </svg>`;
+}
+
+// Ritmo del mes: % de días transcurridos. Si el Sheet aún muestra un mes ya cerrado
+// (p.ej. "Septiembre" el 1 de octubre), ese mes cuenta como completo (100 %).
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+function monthPace(period, now) {
+  const idx = MESES.indexOf(String(period || "").trim().toLowerCase());
+  if (idx >= 0 && idx !== now.getMonth()) return 100;
+  return now.getDate() / daysInMonth(now) * 100;
+}
+
+function viewSummary(m) {
+  const now = new Date();
+  const mes = m.mes?.value, pend = m.pend?.value;
+  let meterHtml = "", statusHtml = "";
+  if (mes != null && pend != null) {
+    const goal = pend < 0 ? mes - pend : mes;
+    const p = goal > 0 ? Math.min(100, mes / goal * 100) : 100;
+    const pace = monthPace(m.period, now);
+    const st = p >= 100 ? ["var(--good)", "✓", "Objetivo cumplido"]
+             : p >= pace ? ["var(--good)", "▲", "En ritmo"]
+             : p >= pace * .8 ? ["var(--warning)", "●", "Algo por detrás"]
+             : ["var(--critical)", "▼", "Por detrás del ritmo"];
+    statusHtml = `<span class="pill" style="color:${st[0]}"><i>${st[1]}</i>${st[2]}</span>`;
+    const ringColor = p >= pace ? "#1AB8C4" : p >= pace * .8 ? "#FFC000" : "#FF344C";
+    meterHtml = ring(p, pace, ringColor);
+    statusHtml += `<div class="meter-legend" style="flex-direction:column;gap:.4vw"><span>Objetivo ${eur(goal)}</span><span>Ritmo del mes: ${nf0.format(pace)}% (marca blanca)</span></div>`;
+  }
+  const pendTile = m.pend ? (m.pend.value >= 0
+      ? `<div class="value" style="color:var(--good)">✓ Cumplido</div><div class="note">Superado en ${eur(m.pend.value)}</div>`
+      : `<div class="value">${eur(-m.pend.value)}</div><div class="note">faltan para el objetivo del mes</div>`) : `<div class="value">—</div>`;
+  const crecTile = m.crec
+      ? `<div class="value" style="color:${m.crec.value >= 0 ? "var(--good)" : "var(--critical)"}">${m.crec.value >= 0 ? "▲" : "▼"} ${pct(m.crec.value)}</div>
+         <div class="note">vs mismo periodo del año anterior</div>` : "";
+  const extra = m.extra.length ? `<div class="extra">${m.extra.map(k =>
+      `<div class="card tile"><div class="label">${esc(k.label)}</div><div class="value">${esc(k.raw)}</div></div>`).join("")}</div>` : "";
+  return `
+    <h2>Resumen del mes · B2B</h2>
+    <div class="summary">
+      <div class="card hero">
+        <div class="hero-main">
+          <div class="label">Facturación B2B ${esc(m.period || "del mes")}</div>
+          <div class="value">${mes != null ? eur(mes) : "—"}</div>
+          ${statusHtml}
+        </div>
+        ${meterHtml}
+      </div>
+      <div class="card tile accent" style="--accent:var(--brand-red)"><div class="label">Pendiente objetivo mes B2B</div>${pendTile}</div>
+      <div class="card tile accent" style="--accent:var(--series-1)">
+        <div class="label">Facturación acumulada B2B</div>
+        <div class="value">${m.ytd ? eur(m.ytd.value) : "—"}</div>
+        ${crecTile}
+      </div>
+    </div>
+    ${splitBar(m)}
+    ${extra}`;
+}
+
+// Barra horizontal: reparto de la facturación del mes (total compañía) por línea de negocio
+function splitBar(m) {
+  const parts = m.partsRaw || [];
+  if (parts.length < 2) return "";
+  let k = MESES.indexOf(String(m.period || "").trim().toLowerCase());
+  if (k < 0) k = new Date().getMonth();
+  const vals = parts.map(p => ({ name: p.name, v: p.vals[k] || 0, c: partColor(p.name, 0) })).filter(p => p.v > 0);
+  const tot = vals.reduce((a, p) => a + p.v, 0);
+  if (!tot) return "";
+  const segs = vals.map(p => `<div class="seg" style="flex:${p.v};background:${p.c};box-shadow:0 0 1vw ${p.c}66"></div>`).join("");
+  const leg = vals.map(p => `<span><b style="background:${p.c}"></b>${esc(p.name)} <strong>${eur(p.v)}</strong> <em>${nf0.format(p.v / tot * 100)}%</em></span>`).join("");
+  return `<div class="card split">
+    <div class="split-head"><div class="label">Facturación total compañía ${esc(m.period || "")} por línea</div><div class="split-total">${eur(tot)}</div></div>
+    <div class="split-bar">${segs}</div>
+    <div class="split-leg">${leg}</div>
+  </div>`;
+}
+
+// Histórico: KPIs del año + barras mensuales con marca del objetivo + acumulado real vs objetivo
+const PART_COLORS = ["#1AB8C4", "#A6E6EA", "#FFC000", "#9B6BFF", "#FF8A3D"];
+// Promo/data y Users (B2B) en cianes; GiftCards en amarillo
+function partColor(name, i) {
+  const n = name.toLowerCase();
+  if (n.includes("gift")) return "#FFC000";
+  if (n.includes("user")) return "#A6E6EA";
+  if (n.includes("promo") || n.includes("data")) return "#1AB8C4";
+  return PART_COLORS[i % PART_COLORS.length];
+}
+function viewHist(hst) {
+  const MES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const last = hst.act.reduce((a, v, k) => v != null ? k : a, -1);   // último mes con dato
+  // Si el último mes con dato es el mes en curso, su objetivo cuenta proporcional a los días transcurridos
+  const now = new Date(), cm = now.getMonth(), inProgress = last === cm && now.getFullYear() === new Date().getFullYear();
+  const dayFrac = now.getDate() / daysInMonth(now);
+  const accNow = last >= 0 ? hst.acc[last] : 0;
+  const objNow = last < 0 ? null : inProgress && hst.obj[last] != null
+    ? (last > 0 ? hst.objAcc[last - 1] || 0 : 0) + hst.obj[last] * dayFrac
+    : hst.objAcc[last];
+  const lastClosed = inProgress ? last - 1 : last;   // último mes completo
+  const objYear = hst.objAcc[11] ?? hst.obj.reduce((a, v) => a + (v || 0), 0);
+  const pctNow = objNow ? accNow / objNow * 100 : null, pctYear = objYear ? accNow / objYear * 100 : null;
+  const hit = hst.act.filter((v, k) => k <= lastClosed && v != null && hst.obj[k] && v >= hst.obj[k]).length;
+  const closed = hst.act.filter((v, k) => k <= lastClosed && v != null).length;
+  const gapColor = pctNow == null ? "var(--text-primary)" : pctNow >= 100 ? "var(--good)" : pctNow >= 90 ? "var(--warning)" : "var(--critical)";
+  const kpi = (label, value, note = "", color = "") => `<div class="kpi"><div class="label">${label}</div><div class="value" ${color ? `style="color:${color}"` : ""}>${value}</div>${note ? `<div class="note">${note}</div>` : ""}</div>`;
+
+  // --- barras mensuales (real) con marca del objetivo de cada mes
+  const W = 1000, H = 520, L = 70, B = 44, T = 36;
+  const maxB = niceMax(Math.max(0, ...hst.act.filter(v => v != null), ...hst.obj.filter(v => v != null)));
+  const yb = v => T + (H - T - B) * (1 - v / maxB);
+  const band = (W - L) / 12, bw = band * .56;
+  let gb = `<defs><linearGradient id="hBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5DD5DC"/><stop offset="1" stop-color="#0E8FA0"/></linearGradient>
+    <linearGradient id="hBarLow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B8FA8"/><stop offset="1" stop-color="#1E4E6E"/></linearGradient>
+    <filter id="hGlow" x="-50%" y="-20%" width="200%" height="140%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  for (let k = 0; k <= 4; k++) { const v = maxB * k / 4;
+    gb += `<line x1="${L}" x2="${W}" y1="${yb(v)}" y2="${yb(v)}" stroke="var(--grid)"/><text x="${L - 10}" y="${yb(v) + 6}" text-anchor="end" font-size="17">${compact(v)}</text>`; }
+  MES.forEach((mn, k) => {
+    const x = L + band * k + (band - bw) / 2, v = hst.act[k], o = hst.obj[k];
+    if (v != null && v > 0 && hst.parts.length) {
+      // Apilado por línea de negocio (2px de separación entre segmentos)
+      let base = 0;
+      hst.parts.forEach((p, pi) => {
+        const pv = p.vals[k] || 0; if (pv <= 0) return;
+        const y0 = yb(base), y1 = yb(base + pv) + (base > 0 ? 0 : 0), isTop = pi === hst.parts.length - 1 || hst.parts.slice(pi + 1).every(q => !(q.vals[k] > 0));
+        const yTop = y1, yBot = y0 - (base > 0 ? 2 : 0), r = isTop ? Math.min(4, (yBot - yTop) / 2) : 0;
+        gb += `<path d="M${x},${yBot} V${yTop + r} Q${x},${yTop} ${x + r},${yTop} H${x + bw - r} Q${x + bw},${yTop} ${x + bw},${yTop + r} V${yBot} Z" fill="${partColor(p.name, pi)}"/>`;
+        base += pv;
+      });
+      gb += `<text class="val" x="${x + bw / 2}" y="${yb(v) - 10}" text-anchor="middle" font-size="16" style="fill:#fff">${compact(v)}</text>`;
+    } else if (v != null && v > 0) {
+      const ok = o == null || v >= o, top = yb(v), r = Math.min(4, (yb(0) - top) / 2);
+      gb += `<path d="M${x},${yb(0)} V${top + r} Q${x},${top} ${x + r},${top} H${x + bw - r} Q${x + bw},${top} ${x + bw},${top + r} V${yb(0)} Z" fill="url(#${ok ? "hBar" : "hBarLow"})" ${ok ? 'filter="url(#hGlow)"' : ""}/>`;
+      gb += `<text class="val" x="${x + bw / 2}" y="${top + 24}" text-anchor="middle" font-size="16" style="fill:#fff">${compact(v)}</text>`;
+    }
+    if (o != null) gb += `<line x1="${x - 6}" x2="${x + bw + 6}" y1="${yb(o)}" y2="${yb(o)}" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="${v == null ? .35 : .95}"/>`;
+    gb += `<text class="lbl" x="${x + bw / 2}" y="${H - 12}" text-anchor="middle" font-size="18" ${k === last ? 'style="fill:#fff;font-weight:700"' : ""}>${mn}</text>`;
+  });
+
+  // --- acumulado real vs objetivo acumulado
+  const Wl = 760, Hl = 520, Ll = 80, Rl = 120, Bl = 44, Tl = 36;
+  const maxL = niceMax(Math.max(0, ...hst.acc.filter(v => v != null), ...hst.objAcc.filter(v => v != null)));
+  const xl = k => Ll + (Wl - Ll - Rl) * k / 11, yl = v => Tl + (Hl - Tl - Bl) * (1 - v / maxL);
+  let gl = `<defs><linearGradient id="hArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1AB8C4" stop-opacity=".45"/><stop offset="1" stop-color="#1AB8C4" stop-opacity="0"/></linearGradient>
+    <filter id="hLine" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  for (let k = 0; k <= 4; k++) { const v = maxL * k / 4;
+    gl += `<line x1="${Ll}" x2="${Wl - Rl}" y1="${yl(v)}" y2="${yl(v)}" stroke="var(--grid)"/><text x="${Ll - 10}" y="${yl(v) + 6}" text-anchor="end" font-size="17">${compact(v)}</text>`; }
+  MES.forEach((mn, k) => { if (k % 2 === 0) gl += `<text class="lbl" x="${xl(k)}" y="${Hl - 12}" text-anchor="middle" font-size="18">${mn}</text>`; });
+  const objPts = hst.objAcc.map((v, k) => v == null ? null : [xl(k), yl(v)]).filter(Boolean);
+  if (objPts.length) {
+    gl += `<path d="${smooth(objPts)}" fill="none" stroke="#D6D6D6" stroke-width="3" stroke-dasharray="10 8" opacity=".8"/>`;
+    const lo = objPts[objPts.length - 1];
+    gl += `<text x="${lo[0] + 12}" y="${lo[1] + 6}" font-size="18" style="fill:#D6D6D6;font-weight:700">Obj. ${compact(objYear)}</text>`;
+  }
+  const accPts = hst.acc.map((v, k) => v == null ? null : [xl(k), yl(v)]).filter(Boolean);
+  if (accPts.length) {
+    const d = smooth(accPts), la = accPts[accPts.length - 1];
+    gl += `<path d="${d} L${la[0]},${yl(0)} L${accPts[0][0]},${yl(0)} Z" fill="url(#hArea)"/>
+      <path d="${d}" fill="none" stroke="#1AB8C4" stroke-width="4" stroke-linecap="round" filter="url(#hLine)"/>
+      <circle cx="${la[0]}" cy="${la[1]}" r="8" fill="#1AB8C4" stroke="#063B5D" stroke-width="3"/>
+      <text class="val" x="${la[0] + 14}" y="${la[1] + 24}" font-size="20">${compact(accNow)}</text>`;
+    if (objNow != null) gl += `<line x1="${la[0]}" x2="${la[0]}" y1="${la[1]}" y2="${yl(objNow)}" stroke="#FF344C" stroke-width="3" stroke-dasharray="4 5"/>
+      <text x="${la[0] + 14}" y="${la[1] + 50}" font-size="18" style="fill:${accNow >= objNow ? "#92D050" : "#FF344C"};font-weight:700">${accNow - objNow >= 0 ? "+" : ""}${compact(accNow - objNow)} vs obj.</text>`;
+  }
+
+  return `
+    <h2>${esc(hst.title)} · Total compañía ${new Date().getFullYear()}</h2>
+    <div class="card kam-top">
+      <div class="kpi hero-kpi"><div class="label">Acumulado vs objetivo</div>
+        <div class="value" style="color:${gapColor}">${pctNow != null ? nf1.format(pctNow) + "%" : "—"}</div>
+        <span class="pill" style="color:${gapColor}">${objNow != null ? (accNow >= objNow ? "▲ +" : "▼ ") + compact(accNow - objNow).replace("-", "") + " € vs objetivo" : ""}</span></div>
+      ${kpi("Facturado año", compact(accNow) + " €")}
+      ${kpi(inProgress ? "Objetivo a hoy" : "Objetivo a " + (MES[last] || "—"), objNow != null ? compact(objNow) + " €" : "—")}
+      ${kpi("Objetivo anual", compact(objYear) + " €", pctYear != null ? nf0.format(pctYear) + "% conseguido" : "")}
+      ${kpi("Meses en objetivo", `${hit}/${closed}`)}
+      ${kpi("Último mes · " + (MES[lastClosed] || "—"), lastClosed >= 0 ? compact(hst.act[lastClosed]) + " €" : "—", lastClosed >= 0 && hst.obj[lastClosed] ? nf0.format(hst.act[lastClosed] / hst.obj[lastClosed] * 100) + "% de " + compact(hst.obj[lastClosed]) : "")}
+    </div>
+    <div class="hist-grid">
+      <div class="card chart"><div class="legend">${hst.parts.length
+          ? hst.parts.map((p, pi) => `<span><b style="background:${partColor(p.name, pi)}"></b>${esc(p.name)}</span>`).join("")
+          : `<span><b style="background:#1AB8C4"></b>Facturación mensual</span>`}<span><b style="background:#fff;height:.25em"></b>Objetivo del mes</span></div>
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${gb}</svg></div>
+      <div class="card chart"><div class="legend"><span><b style="background:#1AB8C4"></b>Acumulado real</span><span><b style="background:#D6D6D6;height:.25em"></b>Objetivo acumulado</span></div>
+        <svg viewBox="0 0 ${Wl} ${Hl}" preserveAspectRatio="xMidYMid meet">${gl}</svg></div>
+    </div>`;
+}
+
+// Colores por serie: la última columna es el año/periodo actual (acento); si hay 2 series, la otra es referencia gris
+function seriesColors(n) {
+  if (n === 1) return ["var(--series-1)"];
+  if (n === 2) return ["var(--series-base)", "var(--series-1)"];
+  return ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"].slice(0, n);
+}
+function legend(names, colors) {
+  if (names.length < 2) return "";
+  return `<div class="legend">${names.map((n, i) => `<span><b style="background:${colors[i]}"></b>${esc(n)}</span>`).join("")}</div>`;
+}
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p;
+  return ([1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(n => f <= n)) * p;
+}
+
+function viewBars(b) {
+  const names = b.head.slice(1), colors = seriesColors(names.length);
+  const cats = b.data.map(r => r[0]);
+  const vals = b.data.map(r => names.map((_, j) => num(r[j + 1])));
+  const W = 1600, H = 620, L = 90, B = 50, T = 40;
+  const max = niceMax(Math.max(0, ...vals.flat().filter(v => v != null)));
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const band = (W - L) / Math.max(1, cats.length), gap = 2;
+  const bw = Math.min(56, (band * .72 - gap * (names.length - 1)) / names.length);
+  let g = `<defs><linearGradient id="barCur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5DD5DC"/><stop offset="1" stop-color="#0E8FA0"/></linearGradient>
+    <filter id="barGlow" x="-50%" y="-20%" width="200%" height="140%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  for (let k = 0; k <= 4; k++) {
+    const v = max * k / 4;
+    g += `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)" stroke-width="1"/>
+          <text x="${L - 14}" y="${y(v) + 7}" text-anchor="end" font-size="20">${compact(v)}</text>`;
+  }
+  cats.forEach((c, i) => {
+    const x0 = L + band * i + (band - (bw * names.length + gap * (names.length - 1))) / 2;
+    vals[i].forEach((v, j) => {
+      if (v == null) return;
+      const x = x0 + j * (bw + gap), h = Math.max(0, y(0) - y(v)), r = Math.min(4, h / 2, bw / 2);
+      // barra con extremo superior redondeado (4px) anclada a la base
+      g += `<path d="M${x},${y(0)} V${y(v) + r} Q${x},${y(v)} ${x + r},${y(v)} H${x + bw - r} Q${x + bw},${y(v)} ${x + bw},${y(v) + r} V${y(0)} Z" fill="${j === names.length - 1 && names.length <= 2 ? "url(#barCur)" : colors[j]}" ${j === names.length - 1 ? 'filter="url(#barGlow)"' : ""}/>`;
+      if (j === names.length - 1) g += `<text class="val" x="${x + bw / 2}" y="${y(v) - 10}" text-anchor="middle" font-size="19">${compact(v)}</text>`;
+    });
+    g += `<text class="lbl" x="${L + band * i + band / 2}" y="${H - 12}" text-anchor="middle" font-size="22">${esc(c)}</text>`;
+  });
+  return `<h2>${esc(b.title)}</h2><div class="card chart">${legend(names, colors)}
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg></div>`;
+}
+
+// Curva suave (Catmull-Rom -> Bézier) que pasa por todos los puntos
+function smooth(pts) {
+  if (pts.length < 3) return "M" + pts.map(p => p.join(",")).join(" L");
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+
+function viewLine(b) {
+  const names = b.head.slice(1), colors = seriesColors(names.length);
+  const cats = b.data.map(r => r[0]);
+  const vals = names.map((_, j) => b.data.map(r => num(r[j + 1])));
+  const W = 1600, H = 620, L = 90, R = 150, B = 50, T = 30;
+  const max = niceMax(Math.max(0, ...vals.flat().filter(v => v != null)));
+  const x = i => L + (W - L - R) * (cats.length < 2 ? 0 : i / (cats.length - 1));
+  const y = v => T + (H - T - B) * (1 - v / max);
+  let g = "";
+  for (let k = 0; k <= 4; k++) {
+    const v = max * k / 4;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>
+          <text x="${L - 14}" y="${y(v) + 7}" text-anchor="end" font-size="20">${compact(v)}</text>`;
+  }
+  cats.forEach((c, i) => g += `<text class="lbl" x="${x(i)}" y="${H - 12}" text-anchor="middle" font-size="22">${esc(c)}</text>`);
+  vals.forEach((s, j) => {
+    const pts = s.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+    if (!pts.length) return;
+    const d = smooth(pts), cur = j === names.length - 1;
+    if (cur) g += `<defs><linearGradient id="area${j}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1AB8C4" stop-opacity=".45"/><stop offset="1" stop-color="#1AB8C4" stop-opacity="0"/></linearGradient>
+      <filter id="lineGlow" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <path d="${d} L${pts[pts.length - 1][0]},${y(0)} L${pts[0][0]},${y(0)} Z" fill="url(#area${j})"/>`;
+    g += `<path d="${d}" fill="none" stroke="${colors[j]}" stroke-width="${cur ? 4 : 3}" stroke-linecap="round" ${cur ? 'filter="url(#lineGlow)"' : 'stroke-dasharray="10 8"'}/>`;
+    const last = pts[pts.length - 1], lv = s.filter(v => v != null).pop();
+    g += `<circle cx="${last[0]}" cy="${last[1]}" r="8" fill="${colors[j]}" stroke="var(--surface-1)" stroke-width="3"/>
+          <text class="val" x="${last[0] + 16}" y="${last[1] + 7}" font-size="21">${compact(lv)}</text>`;
+  });
+  return `<h2>${esc(b.title)}</h2><div class="card chart">${legend(names, colors)}
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg></div>`;
+}
+
+function viewRanking(b) {
+  const rows = b.data.map(r => ({ name: r[0], raw: r[1], v: num(r[1]) })).filter(r => r.v != null).slice(0, 10);
+  const max = Math.max(1, ...rows.map(r => r.v));
+  const n = rows.length, rowH = Math.min(84, 620 / Math.max(1, n)), W = 1600, H = n * rowH, L = 360, R = 200;
+  let g = "";
+  rows.forEach((r, i) => {
+    const yy = i * rowH, w = Math.max(6, (W - L - R) * r.v / max), bh = rowH * .55;
+    g += `<text class="lbl" x="${L - 20}" y="${yy + rowH / 2 + 8}" text-anchor="end" font-size="24">${i + 1}. ${esc(r.name)}</text>
+          <rect x="${L}" y="${yy + (rowH - bh) / 2}" width="${w}" height="${bh}" rx="4" fill="var(--series-1)"/>
+          <text class="val" x="${L + w + 16}" y="${yy + rowH / 2 + 8}" font-size="24">${isPct(r.raw) ? esc(r.raw) : eur(r.v)}</text>`;
+  });
+  return `<h2>${esc(b.title)}</h2><div class="card chart">
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet">${g}</svg></div>`;
+}
+
+function viewTable(b) {
+  const isNumCol = b.head.map((_, j) => b.data.length && b.data.every(r => !r[j] || num(r[j]) != null));
+  return `<h2>${esc(b.title)}</h2><div class="card" style="flex:1;overflow:hidden"><table>
+    <thead><tr>${b.head.map((h, j) => `<th class="${isNumCol[j] ? "num" : ""}">${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${b.data.slice(0, 12).map(r => `<tr>${r.map((c, j) => `<td class="${isNumCol[j] ? "num" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table></div>`;
+}
+
+const RENDER = { barras: viewBars, linea: viewLine, ranking: viewRanking, tabla: viewTable };
+
+// ===================== AVISOS + SONIDO =====================
+let actx;
+function audio() { return actx || (actx = new (window.AudioContext || window.webkitAudioContext)()); }
+function quiet() { const d = new Date(), h = d.getHours(); return !CONFIG.officeDays.includes(d.getDay()) || h < CONFIG.officeFrom || h >= CONFIG.officeTo; }
+
+// Disparo sintetizado: golpe de ruido filtrado + "thump" grave, con cola corta
+function gunshot(at = 0) {
+  const a = audio(), t = a.currentTime + at;
+  const len = a.sampleRate * .6, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.setValueAtTime(6000, t); lp.frequency.exponentialRampToValueAtTime(400, t + .4);
+  const gn = a.createGain(); gn.gain.setValueAtTime(1.4, t); gn.gain.exponentialRampToValueAtTime(.001, t + .6);
+  src.connect(lp).connect(gn).connect(a.destination); src.start(t);
+  const o = a.createOscillator(), og = a.createGain();
+  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + .25);
+  og.gain.setValueAtTime(1.2, t); og.gain.exponentialRampToValueAtTime(.001, t + .3);
+  o.connect(og).connect(a.destination); o.start(t); o.stop(t + .35);
+}
+function fanfare(at = 0) {
+  const a = audio(), t0 = a.currentTime + at;
+  [[523, 0], [659, .15], [784, .3], [1047, .45]].forEach(([f, dt], i) => {
+    const o = a.createOscillator(), g = a.createGain(); o.type = "triangle"; o.frequency.value = f;
+    const t = t0 + dt, dur = i === 3 ? 1.2 : .18;
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.5, t + .02); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .05);
+  });
+}
+function showAlert(big, small, color, kind) {
+  $("alertBig").textContent = big; $("alertBig").style.color = color; $("alertSmall").textContent = small;
+  const el = $("alert"); el.classList.remove("on"); void el.offsetWidth; el.classList.add("on");
+  if (CONFIG.sound && !quiet()) {
+    try {
+      if (kind === "goal") { gunshot(0); gunshot(.35); gunshot(.7); fanfare(1.2); } else gunshot(0);
+    } catch (e) { console.warn("audio", e); }
+  }
+  setTimeout(() => el.classList.remove("on"), 9000);
+}
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem("dash_" + k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem("dash_" + k, JSON.stringify(v)); } catch {} }
+};
+function checkAlerts(m) {
+  if (DEMO) return;
+  const mes = m.mes?.value, pend = m.pend?.value, period = m.period || "";
+  const now = new Date(), key = now.getFullYear() * 100 + now.getMonth() + 1;
+  const last = store.get("mes"), lastPeriod = store.get("period");
+  if (pend != null && pend >= 0 && store.get("goal") !== key) {
+    store.set("goal", key);
+    showAlert("¡OBJETIVO!", "Objetivo del mes cumplido · " + (mes != null ? eur(mes) : ""), "var(--good)", "goal");
+  } else if (mes != null && last != null && lastPeriod === period && mes > last + .5) {
+    showAlert("+" + eur(mes - last), "Nueva facturación · total mes " + eur(mes), "var(--good)", "shot");
+  }
+  if (mes != null) { store.set("mes", mes); store.set("period", period); }
+}
+window.testAlert = k => k === "goal" ? showAlert("¡OBJETIVO!", "Objetivo del mes cumplido", "var(--good)", "goal") : showAlert("+12.500 €", "Nueva facturación · prueba", "var(--good)", "shot");
+
+// ===================== DATOS DE EJEMPLO (solo ?demo) =====================
+const DEMO_CSV = `
+[barras] Facturación mensual 2026 vs 2025
+Mes,2025,2026
+Ene,241.300€,262.100€
+Feb,228.900€,251.400€
+Mar,305.200€,318.700€
+Abr,276.400€,291.800€
+May,312.000€,347.300€
+Jun,354.800€,369.200€
+Jul,298.100€,322.600€
+Ago,187.600€,201.500€
+Sep,431.900€,259.128€
+
+[linea] Facturación acumulada 2026 vs 2025
+Mes,2025,2026
+Ene,241.300€,262.100€
+Feb,470.200€,513.500€
+Mar,775.400€,832.200€
+Abr,1.051.800€,1.124.000€
+May,1.363.800€,1.471.300€
+Jun,1.718.600€,1.840.500€
+Jul,2.016.700€,2.163.100€
+Ago,2.204.300€,2.364.600€
+Sep,2.636.200€,2.943.618€
+
+[ranking] Top clientes 2026
+Cliente,Facturación
+Cliente A,412.300€
+Cliente B,338.900€
+Cliente C,301.400€
+Cliente D,254.700€
+Cliente E,198.200€
+Cliente F,176.500€
+Cliente G,149.800€
+
+[tabla] Últimas facturas
+Fecha,Cliente,Importe
+28/09,Cliente C,18.400€
+27/09,Cliente A,42.150€
+26/09,Cliente F,7.980€
+25/09,Cliente B,23.600€
+24/09,Cliente D,11.250€
+`;
+
+// ===================== CICLO =====================
+let views = [], cur = 0, lastOk = 0, rotStart = Date.now();
+let lastModel = null, cmsSlides = [], pending = null, videoEnded = false;
+
+async function load() {
+  try {
+    const r = await fetch(CONFIG.csvUrl + "&t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    let text = await r.text();
+    if (DEMO && !/^\[/m.test(text)) text += "\n" + DEMO_CSV;
+    store.set("csv", text);
+    lastOk = Date.now();
+    render(model(parseCSV(text)), true);
+  } catch (e) {
+    console.warn("load", e);
+    const cached = store.get("csv");
+    if (cached && !views.length) render(model(parseCSV(cached)), false);
+  }
+  updateStatus();
+}
+
+// Pantallas del gestor de contenidos (noticias, anuncios…), se releen cada minuto
+async function loadCms() {
+  const list = await CMS.fetchSlides();
+  if (!list) return;
+  const sig = JSON.stringify(list);
+  if (sig === loadCms.sig) return;
+  loadCms.sig = sig; cmsSlides = list;
+  if (lastModel) render(lastModel, false);
+}
+
+function render(m, fresh) {
+  lastModel = m;
+  $("period").textContent = m.period ? "Mes en curso: " + m.period : "";
+  $("demo").hidden = !DEMO;
+  const data = [viewSummary(m), ...(m.kam ? [viewKam(m.kam)] : []), ...(m.hist ? [viewHist(m.hist)] : []), ...m.blocks.filter(b => RENDER[b.type] && b.head).map(b => RENDER[b.type](b))]
+    .map(h => `<section class="view">${h}</section>`);
+  const content = CMS.active(cmsSlides, "h").map(sl => `<section class="view view-cms" data-dur="${CMS.waitsForVideo(sl) ? 0 : (+sl.dur || CONFIG.viewSec) * 1000}" ${CMS.waitsForVideo(sl) ? 'data-wait="1"' : ""}><div class="cms-stage">${CMS.render(sl)}</div></section>`);
+  const html = data.concat(content).join("");
+  if (fresh) checkAlerts(m);
+  // Con la rotación en marcha, el cambio se aplica al pasar a la siguiente pantalla (no corta un vídeo a medias)
+  if (views.length && !params.has("view")) { pending = html; return; }
+  apply(html, cur);
+}
+
+function apply(html, idx) {
+  const main = $("views");
+  views.forEach(v => CMS.onHide(v));
+  main.innerHTML = html;
+  views = [...main.children];
+  cur = params.has("view") ? Math.min(views.length - 1, +params.get("view") || 0) : (idx >= views.length ? 0 : idx);
+  views[cur].classList.add("on");
+  CMS.onShow(views[cur]);
+  bindVideoEnd();
+  $("dots").innerHTML = views.length > 1 ? views.map((_, i) => `<span class="${i === cur ? "on" : ""}"></span>`).join("") : "";
+}
+
+function bindVideoEnd() {
+  videoEnded = false;
+  const v = views[cur]?.dataset.wait ? views[cur].querySelector("video[data-cms-video=main]") : null;
+  if (v) v.onended = () => { videoEnded = true; };
+}
+
+function rotate() {
+  if (pending != null) { const h = pending; pending = null; apply(h, cur + 1); rotStart = Date.now(); return; }
+  if (views.length < 2) return;
+  views[cur].classList.remove("on");
+  CMS.onHide(views[cur]);
+  cur = (cur + 1) % views.length;
+  views[cur].classList.add("on");
+  CMS.onShow(views[cur]);
+  bindVideoEnd();
+  [...$("dots").children].forEach((d, i) => d.classList.toggle("on", i === cur));
+  rotStart = Date.now();
+}
+
+// Duración de la pantalla actual (ms); los vídeos "enteros" esperan al final (máx. 10 min)
+function curDur() {
+  const v = views[cur];
+  if (!v) return CONFIG.viewSec * 1000;
+  if (v.dataset.wait) return videoEnded ? 0 : 600000;
+  return +v.dataset.dur || CONFIG.viewSec * 1000;
+}
+
+function updateStatus() {
+  const s = $("status");
+  if (!lastOk) { s.innerHTML = `<span class="stale">Sin conexión con el Sheet</span>`; return; }
+  const min = Math.round((Date.now() - lastOk) / 60000);
+  const stale = min > CONFIG.refreshMin * 3;
+  s.innerHTML = `<span class="${stale ? "stale" : ""}">Actualizado ${min < 1 ? "ahora" : "hace " + min + " min"}</span>`;
+}
+
+function tick() {
+  const d = new Date();
+  $("clock").textContent = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const dur = curDur(), el = dur ? (Date.now() - rotStart) / dur : 1;
+  $("timer").style.width = views.length > 1 && !views[cur]?.dataset.wait ? Math.min(100, el * 100) + "vw" : "0";
+  if (el >= 1 && (views.length > 1 || pending != null)) rotate();
+}
+
+loadCms().then(load);
+CMS.listenSales({ sound: true });   // ventas anunciadas desde el gestor: suena por la tele horizontal
+setInterval(load, CONFIG.refreshMin * 60000);
+setInterval(loadCms, 60000);
+setInterval(tick, 250);
+setInterval(updateStatus, 30000);
+// Recarga completa diaria a las 4:00 (evita acumulación de memoria en el navegador)
+setInterval(() => { const d = new Date(); if (d.getHours() === 4 && d.getMinutes() === 0) location.reload(); }, 60000);
+</script>
+</body>
+</html>

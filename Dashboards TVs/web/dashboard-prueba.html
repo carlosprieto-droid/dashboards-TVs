@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Prueba dashboards + termómetros</title>
+<style>
+  /* Modo prueba con un solo monitor: alterna el dashboard horizontal y los termómetros
+     girados 90º (para ver el efecto girando el monitor físicamente).
+     ?rot=-90 (por defecto) = monitor girado en sentido horario · ?rot=90 = antihorario */
+  html, body { margin: 0; height: 100%; background: #0F2235; overflow: hidden; cursor: none; }
+  iframe { position: absolute; border: 0; opacity: 0; transition: opacity .8s; }
+  iframe.on { opacity: 1; }
+  #h { inset: 0; width: 100vw; height: 100vh; }
+  #v { width: 100vh; height: 100vw; left: 50%; top: 50%; transform-origin: center; }
+</style>
+</head>
+<body>
+<iframe id="h" src="dashboard.html" allow="autoplay"></iframe>
+<iframe id="v" src="termometros.html?demo" allow="autoplay"></iframe>
+<script>
+  const q = new URLSearchParams(location.search);
+  const rot = +(q.get("rot") || -90);
+  const hSec = +(q.get("h") || 60), vSec = +(q.get("v") || 30);
+  const v = document.getElementById("v"), h = document.getElementById("h");
+  v.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+  let showV = false;
+  function step() {
+    showV = !showV;
+    h.classList.toggle("on", !showV); v.classList.toggle("on", showV);
+    setTimeout(step, (showV ? vSec : hSec) * 1000);
+  }
+  h.classList.add("on");
+  setTimeout(step, hSec * 1000);
+</script>
+</body>
+</html>

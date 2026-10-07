@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestor de contenidos</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0F2235; --surface-1: #063B5D; --surface-2: #12465F; --border: #1E4E6E;
+    --text: #fff; --text-2: #D6D6D6; --muted: #8FA7B5;
+    --cyan: #1AB8C4; --red: #FF344C; --good: #92D050; --warn: #FFC000;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: radial-gradient(120vw 80vw at 70% -10%, #0B3552 0%, #0F2235 45%, #0A1826 100%) fixed; color: var(--text);
+         font: 15px/1.45 Lato, system-ui, sans-serif; }
+  h1, h2, h3, .btn, .chip, label.k { font-family: Montserrat, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .btn { border: 1px solid var(--border); background: var(--surface-2); padding: .55em 1em; border-radius: .5em; cursor: pointer; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.primary { background: var(--cyan); color: #0F2235; border-color: var(--cyan); box-shadow: 0 0 14px rgba(26,184,196,.45); }
+  .btn.danger { background: transparent; color: var(--red); border-color: rgba(255,52,76,.5); }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: .45; cursor: default; box-shadow: none; }
+  input[type=text], input[type=date], input[type=number], input[type=password], select, textarea {
+    width: 100%; background: rgba(15,34,53,.7); border: 1px solid var(--border); border-radius: .5em; padding: .6em .75em; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(26,184,196,.2); }
+  textarea { min-height: 110px; resize: vertical; }
+  label.k { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 .4em; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: .3em; }
+  .card { position: relative; background: linear-gradient(180deg, rgba(6,59,93,.62), rgba(6,59,93,.28)); border: 1px solid rgba(26,184,196,.16); border-radius: 14px; }
+
+  /* Login */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .login .card { width: min(400px, 100%); padding: 32px; display: flex; flex-direction: column; gap: 14px; }
+  .login img { width: 70px; }
+  .err { color: var(--red); font-size: 13px; min-height: 1.2em; }
+
+  /* App */
+  header.top { display: flex; align-items: center; gap: 14px; padding: 14px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5;
+               background: rgba(15,34,53,.88); backdrop-filter: blur(8px); }
+  header.top img { width: 38px; }
+  header.top h1 { font-size: 17px; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+  header.top .sp { flex: 1; }
+  .saved { font-size: 13px; color: var(--muted); }
+  .saved.dirty { color: var(--warn); }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; padding: 20px 24px; align-items: start; }
+  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .list-head { display: flex; align-items: center; justify-content: space-between; }
+  .list-head h2 { font-size: 14px; letter-spacing: .08em; text-transform: uppercase; margin: 0; color: var(--text-2); }
+  .item { display: grid; grid-template-columns: 22px 64px 1fr; gap: 10px; align-items: center; padding: 10px; cursor: pointer; }
+  .item.sel { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan), 0 0 18px rgba(26,184,196,.25); }
+  .item.off { opacity: .55; }
+  .item.drag-over { border-color: var(--red); }
+  .grip { cursor: grab; color: var(--muted); text-align: center; user-select: none; font-size: 16px; }
+  .thumb { width: 64px; aspect-ratio: 16/9; border-radius: 6px; overflow: hidden; background: #0A1826; position: relative; }
+  .thumb .mini { position: absolute; inset: 0; container-type: size; }
+  .item .t { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .chip { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,.07); color: var(--text-2); }
+  .chip.on { color: var(--good); } .chip.off { color: var(--red); } .chip.sched { color: var(--warn); }
+  .empty { padding: 24px; text-align: center; color: var(--muted); }
+
+  .editor { display: flex; flex-direction: column; gap: 16px; }
+  .ed-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ed-head h2 { margin: 0; font-size: 18px; flex: 1; }
+  .panes { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 1250px) { .panes { grid-template-columns: 1fr; } }
+  .form { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .form h3 { margin: 6px 0 0; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .seg { display: flex; border: 1px solid var(--border); border-radius: .5em; overflow: hidden; }
+  .seg button { flex: 1; background: transparent; border: 0; padding: .55em .4em; cursor: pointer; font-size: 13px; font-family: Montserrat, sans-serif; font-weight: 600; color: var(--text-2); }
+  .seg button.on { background: var(--cyan); color: #0F2235; }
+  .switch { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .switch input { width: 18px; height: 18px; accent-color: var(--cyan); }
+
+  .mediaf { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .mthumb { width: 120px; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; background: #0A1826; border: 1px solid var(--border); position: relative; }
+  .mthumb img, .mthumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mthumb .x { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(15,34,53,.85); cursor: pointer; font-weight: 700; }
+  .drop { border: 1.5px dashed var(--border); border-radius: 10px; padding: 12px; text-align: center; color: var(--muted); font-size: 13px; width: 100%; }
+  .drop.over { border-color: var(--cyan); color: var(--text); background: rgba(26,184,196,.08); }
+  .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--cyan); }
+
+  .previews { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 84px; }
+  .pv-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .pv-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-family: Montserrat, sans-serif; margin-bottom: 6px; }
+  /* Maqueta de tele: cabecera + zona de contenido, todo en unidades del marco */
+  .tv { container-type: inline-size; background: radial-gradient(120% 80% at 70% -10%, #0B3552 0%, #0F2235 45%, #0A1826 100%);
+        border-radius: 10px; border: 6px solid #05101a; box-shadow: 0 10px 40px rgba(0,0,0,.45); overflow: hidden; }
+  .tv.h { width: 100%; aspect-ratio: 16/9; } .tv.v { width: 230px; aspect-ratio: 9/16; flex: none; }
+  .tv .scr { width: 100%; height: 100%; display: flex; flex-direction: column; padding: 2.3cqw 2.6cqw 1.6cqw; gap: 1.6cqw; }
+  .tv .mh { display: flex; align-items: center; gap: 1.6cqw; }
+  .tv .mh img { width: 4.2cqw; } .tv .mh b { font-family: Montserrat; font-weight: 800; letter-spacing: .08em; font-size: 1.9cqw; }
+  .tv .mh span { margin-left: auto; font-family: Montserrat; font-weight: 700; font-size: 2.6cqw; }
+  .tv.v .scr { padding: 3cqw; gap: 3cqw; } .tv.v .mh img { width: 9cqw; } .tv.v .mh b { font-size: 5cqw; } .tv.v .mh span { font-size: 5cqw; }
+
+  .modal { position: fixed; inset: 0; background: rgba(5,16,26,.75); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .modal.on { display: flex; }
+  .modal .card { width: min(1000px, 100%); max-height: 88vh; overflow: auto; padding: 20px; }
+  .modal h2 { margin: 0 0 14px; font-size: 16px; }
+  .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .tpl { padding: 10px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+  .tpl:hover { border-color: var(--cyan); }
+  .tpl .thumb { width: 100%; }
+  .tpl b { font-family: Montserrat; } .tpl small { color: var(--muted); }
+  .lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .lib .it { cursor: pointer; } .lib .it:hover .mthumb { border-color: var(--cyan); }
+  .lib .it .mthumb { width: 100%; } .lib .it small { display: block; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabs { display: flex; gap: 4px; margin-left: 18px; background: rgba(255,255,255,.05); padding: 4px; border-radius: 10px; }
+  .tabs button { border: 0; background: transparent; padding: .5em 1em; border-radius: 7px; cursor: pointer; font-family: Montserrat, sans-serif; font-weight: 700; font-size: 13px; color: var(--text-2); }
+  .tabs button.on { background: var(--red); color: #fff; box-shadow: 0 0 12px rgba(255,52,76,.45); }
+  .tmini { width: 64px; height: 36px; border-radius: 6px; background: #0A1826; position: relative; overflow: hidden; display: flex; justify-content: center; }
+  .tmini::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; width: 12px; transform: translateX(-50%); border-radius: 6px; background: rgba(255,255,255,.08); }
+  .tmini i { position: absolute; left: 50%; bottom: 4px; width: 12px; transform: translateX(-50%); border-radius: 6px; max-height: calc(100% - 8px); }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatches button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+  .swatches button.on { border-color: #fff; box-shadow: 0 0 0 2px var(--bg), 0 0 12px currentColor; }
+  .tvv { width: 270px; height: 480px; border-radius: 10px; border: 6px solid #05101a; box-shadow: 0 10px 40px rgba(0,0,0,.45); overflow: hidden; box-sizing: content-box; }
+  .tvv iframe { width: 1080px; height: 1920px; border: 0; transform: scale(.25); transform-origin: 0 0; }
+  .btn.sale-btn { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 0 14px rgba(255,52,76,.5); }
+  .sale-card-form { width: min(520px, 100%) !important; }
+  .checks { display: flex; flex-direction: column; gap: 6px; }
+  .pdt { width: 100%; border-collapse: collapse; font-size: 13px; } .pdt th { text-align: left; color: var(--muted); font-weight: 700; }
+  .pdt td, .pdt th { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--surface-1); border: 1px solid var(--cyan); padding: 10px 18px; border-radius: 10px;
+           font-weight: 700; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 30; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="modal" id="tplModal"><div class="card"><h2>Elige una plantilla</h2><div class="tpl-grid" id="tplGrid"></div>
+  <div style="margin-top:14px;text-align:right"><button class="btn ghost" onclick="closeModal('tplModal')">Cancelar</button></div></div></div>
+<div class="modal" id="libModal"><div class="card"><h2>Biblioteca de fotos y vídeos</h2><div class="lib" id="libGrid"></div>
+  <div style="margin-top:14px;text-align:right"><button class="btn ghost" onclick="closeModal('libModal')">Cerrar</button></div></div></div>
+<div class="modal" id="saleModal"><div class="card sale-card-form">
+  <h2>Anunciar venta</h2>
+  <div class="hint" style="margin:-6px 0 14px">Las dos teles muestran la celebración en unos segundos y suena la ráfaga por la horizontal. El reloj de tu mesa también avisa.</div>
+  <div class="form" style="padding:0">
+    <div><label class="k">KAM</label><select id="sKam"></select><input type="text" id="sKamOther" placeholder="Nombre del KAM" style="margin-top:8px" hidden></div>
+    <div><label class="k">Cliente</label><input type="text" id="sCli" placeholder="Ej. Mahou San Miguel"></div>
+    <div><label class="k">Importe (€)</label><input type="number" id="sImp" min="0" step="any" placeholder="Ej. 25000"></div>
+    <div class="err" id="sErr"></div>
+    <div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">
+      <button class="btn ghost" onclick="testSale()">Probar aquí (sin enviar a las teles)</button>
+      <div style="display:flex;gap:10px"><button class="btn ghost" onclick="closeModal('saleModal')">Cancelar</button>
+        <button class="btn sale-btn" id="sGo" onclick="sendSale()">¡Lanzar en las teles!</button></div>
+    </div>
+  </div></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="cms.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = CMS.esc, TPL = CMS.TEMPLATES;
+let slides = [], selId = null, dirty = false, libTarget = null;
+let thermos = [], tSel = null, sheetVals = null, kams = [];
+// Fecha local (no UTC) en formato AAAA-MM-DD
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 2400); }
+function closeModal(id) { $("#" + id).classList.remove("on"); }
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && !url.startsWith("/api/auth")) { boot(); throw new Error("login"); }
+  if (!r.ok) throw new Error(data.error || "Error " + r.status);
+  return data;
+}
+
+// ---------------- Acceso ----------------
+async function boot() {
+  const st = await api("GET", "/api/auth");
+  if (st.logged) return start();
+  const setup = !st.configured;
+  $("#app").innerHTML = `<div class="login"><div class="card">
+    <img src="assets/gelt-logo.png" alt="Gelt">
+    <h2 style="margin:0">Gestor de contenidos</h2>
+    <div class="hint" style="margin:0">${setup ? "Primera vez: crea la contraseña de acceso (mínimo 8 caracteres). Quien la tenga podrá editar las pantallas." : "Introduce la contraseña de acceso."}</div>
+    <input type="password" id="pw" placeholder="Contraseña" autocomplete="${setup ? "new-password" : "current-password"}">
+    ${setup ? `<input type="password" id="pw2" placeholder="Repite la contraseña" autocomplete="new-password">` : ""}
+    <div class="err" id="err"></div>
+    <button class="btn primary" id="go">${setup ? "Crear contraseña y entrar" : "Entrar"}</button></div></div>`;
+  const go = async () => {
+    const pw = $("#pw").value;
+    if (setup && pw !== $("#pw2").value) return $("#err").textContent = "Las contraseñas no coinciden";
+    try { await api("POST", setup ? "/api/auth/setup" : "/api/auth/login", { password: pw }); start(); }
+    catch (e) { $("#err").textContent = e.message; }
+  };
+  $("#go").onclick = go;
+  $("#app").querySelectorAll("input").forEach(i => i.onkeydown = e => { if (e.key === "Enter") go(); });
+  $("#pw").focus();
+}
+async function logout() { await api("POST", "/api/auth/logout"); boot(); }
+
+// ---------------- App ----------------
+let tab = "slides";
+async function start() {
+  [slides, thermos] = await Promise.all([api("GET", "/api/slides"), api("GET", "/api/thermos")]);
+  $("#app").innerHTML = `
+    <header class="top"><img src="assets/gelt-logo.png" alt=""><h1>Gestor de contenidos</h1>
+      <nav class="tabs"><button data-tab="slides">Pantallas</button><button data-tab="thermos">Termómetros</button><button data-tab="integ">Integraciones</button></nav>
+      <div class="sp"></div>
+      <button class="btn sale-btn" onclick="openSale()">Anunciar venta</button>
+      <span class="saved" id="saved">Todo guardado</span>
+      <button class="btn primary" id="saveBtn" onclick="save()" disabled>Publicar cambios</button>
+      <button class="btn ghost" onclick="logout()">Salir</button></header>
+    <div class="layout" id="layout"></div>`;
+  document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  window.onbeforeunload = () => dirty ? "Hay cambios sin publicar" : undefined;
+  loadSheetVals();
+  showTab(location.hash === "#termometros" ? "thermos" : location.hash === "#integraciones" ? "integ" : "slides");
+}
+function showTab(t) {
+  tab = t; history.replaceState(null, "", t === "thermos" ? "#termometros" : t === "integ" ? "#integraciones" : "#");
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  if (t === "integ") { $("#layout").innerHTML = `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:20px"><div id="celeb"></div><div id="integ"></div></div>`; renderCeleb(); renderInteg(); return; }
+  if (t === "slides") {
+    $("#layout").innerHTML = `<div class="list"><div class="list-head"><h2>Pantallas</h2><button class="btn primary" onclick="newSlide()">+ Nueva</button></div>
+        <div class="hint" style="margin:0">Arrastra para cambiar el orden. Salen en las teles después de los dashboards.</div>
+        <div id="items"></div></div>
+      <div id="editor"></div>`;
+    renderList();
+    if (slides.find(s => s.id === selId)) select(selId); else if (slides.length) select(slides[0].id); else renderEditor();
+  } else {
+    $("#layout").innerHTML = `<div class="list"><div class="list-head"><h2>Termómetros</h2><button class="btn primary" onclick="newThermo()">+ Nuevo</button></div>
+        <div class="hint" style="margin:0">Salen en la tele vertical, hasta 3 a la vez. Arrastra para cambiar el orden.</div>
+        <div id="items"></div></div>
+      <div id="editor"></div>`;
+    renderThermoList();
+    if (thermos.find(t => t.id === tSel)) selectThermo(tSel); else if (thermos.length) selectThermo(thermos[0].id); else renderThermoEditor();
+  }
+}
+function markDirty(v = true) {
+  dirty = v; const s = $("#saved"); if (!s) return;
+  s.textContent = v ? "Cambios sin publicar" : "Todo guardado"; s.classList.toggle("dirty", v); $("#saveBtn").disabled = !v;
+}
+async function save() {
+  try { await api("PUT", "/api/slides", slides); await api("PUT", "/api/thermos", thermos); markDirty(false); toast("Publicado · las teles lo mostrarán en menos de un minuto"); }
+  catch (e) { if (e.message !== "login") toast("No se pudo guardar: " + e.message); }
+}
+
+function statusChips(s) {
+  const c = [];
+  if (s.active === false) c.push(`<span class="chip off">Pausada</span>`);
+  else if (s.from && s.from > today()) c.push(`<span class="chip sched">Desde ${s.from.slice(8)}/${s.from.slice(5, 7)}</span>`);
+  else if (s.to && s.to < today()) c.push(`<span class="chip off">Caducada</span>`);
+  else c.push(`<span class="chip on">En emisión</span>`);
+  c.push(`<span class="chip">${{ h: "Horizontal", v: "Vertical", hv: "Ambas" }[s.screens || "h"]}</span>`);
+  c.push(`<span class="chip">${CMS.waitsForVideo(s) ? "Vídeo entero" : (s.dur || 15) + " s"}</span>`);
+  return c.join("");
+}
+function titleOf(s) { const f = s.fields || {}; return f.titulo || f.nombre || f.cifra || TPL[s.template]?.name || "Sin título"; }
+function mini(s) { return `<div class="mini cms-preview">${CMS.render(s)}</div>`; }
+
+function renderList() {
+  const box = $("#items");
+  if (!slides.length) { box.innerHTML = `<div class="card empty">Aún no hay pantallas.<br>Pulsa <b>+ Nueva</b> para crear la primera.</div>`; return; }
+  box.innerHTML = slides.map(s => `<div class="card item ${s.id === selId ? "sel" : ""} ${s.active === false ? "off" : ""}" draggable="true" data-id="${s.id}">
+      <div class="grip" title="Arrastrar">⋮⋮</div><div class="thumb">${mini(s)}</div>
+      <div style="min-width:0"><div class="t">${esc(titleOf(s))}</div><div class="hint" style="margin:0">${esc(TPL[s.template]?.name || "")}</div><div class="chips">${statusChips(s)}</div></div></div>`).join("");
+  box.querySelectorAll(".item").forEach(el => {
+    el.onclick = () => select(el.dataset.id);
+    el.ondragstart = e => { e.dataTransfer.setData("text/plain", el.dataset.id); };
+    el.ondragover = e => { e.preventDefault(); el.classList.add("drag-over"); };
+    el.ondragleave = () => el.classList.remove("drag-over");
+    el.ondrop = e => {
+      e.preventDefault(); el.classList.remove("drag-over");
+      const from = slides.findIndex(s => s.id === e.dataTransfer.getData("text/plain")), to = slides.findIndex(s => s.id === el.dataset.id);
+      if (from < 0 || to < 0 || from === to) return;
+      const [m] = slides.splice(from, 1); slides.splice(to, 0, m); markDirty(); renderList();
+    };
+  });
+  box.querySelectorAll("video").forEach(v => v.removeAttribute("loop"));
+}
+
+function newSlide() {
+  $("#tplGrid").innerHTML = Object.entries(TPL).map(([k, t]) => `<div class="card tpl" onclick="createSlide('${k}')">
+      <div class="thumb">${mini({ template: k, fields: t.sample })}</div><b>${t.name}</b><small>${t.desc}</small></div>`).join("");
+  $("#tplModal").classList.add("on");
+}
+function createSlide(tpl) {
+  closeModal("tplModal");
+  const fields = {};
+  TPL[tpl].fields.forEach(f => { if (f.def !== undefined) fields[f.k] = f.def; });
+  const s = { id: "s" + Date.now().toString(36), template: tpl, fields, dur: tpl === "video" ? 0 : 15, active: true, from: today(), to: today(), screens: "h" };
+  slides.unshift(s); markDirty(); select(s.id);
+}
+function select(id) { selId = id; renderList(); renderEditor(); }
+const cur = () => slides.find(s => s.id === selId);
+
+function renderEditor() {
+  const s = cur(), ed = $("#editor");
+  if (!s) { ed.innerHTML = ""; return; }
+  const t = TPL[s.template];
+  const field = f => {
+    const v = s.fields[f.k];
+    if (f.t === "text") return `<div><label class="k">${f.l}</label><input type="text" data-k="${f.k}" value="${esc(v || "")}"></div>`;
+    if (f.t === "textarea") return `<div><label class="k">${f.l}</label><textarea data-k="${f.k}">${esc(v || "")}</textarea><div class="hint">**texto** para resaltar · línea en blanco = nuevo párrafo</div></div>`;
+    if (f.t === "bool") return `<label class="switch"><input type="checkbox" data-k="${f.k}" ${v ? "checked" : ""}> ${f.l}</label>`;
+    if (f.t === "media" || f.t === "gallery") {
+      const list = f.t === "gallery" ? (v || []) : (v ? [v] : []);
+      const full = f.t === "media" ? list.length >= 1 : list.length >= 6;
+      return `<div><label class="k">${f.l}</label><div class="mediaf">
+        ${list.map((u, i) => `<div class="mthumb">${CMS.isVideo(u) ? `<video src="${esc(u)}" muted></video>` : `<img src="${esc(u)}" alt="">`}<button class="x" data-rm="${f.k}" data-i="${i}" title="Quitar">×</button></div>`).join("")}
+        ${full ? "" : `<div class="drop" data-drop="${f.k}" data-type="${f.t}">Arrastra aquí una foto o vídeo, o
+          <label class="btn" style="display:inline-block;margin:0 4px">Subir<input type="file" hidden accept="image/*,video/*" ${f.t === "gallery" ? "multiple" : ""} data-file="${f.k}"></label>
+          <button class="btn ghost" data-lib="${f.k}">Biblioteca</button><div class="bar" hidden><i></i></div></div>`}
+      </div>${f.t === "media" ? `<div class="hint">Recomendado: fotos horizontales de al menos 1920 px · vídeo MP4.</div>` : ""}</div>`;
+    }
+    return "";
+  };
+  ed.innerHTML = `<div class="editor">
+    <div class="ed-head"><h2>${esc(t.name)}</h2>
+      <button class="btn" onclick="dupSlide()">Duplicar</button><button class="btn danger" onclick="delSlide()">Eliminar</button></div>
+    <div class="panes">
+      <div class="card form" id="form">
+        <h3>Contenido</h3>${t.fields.map(field).join("")}
+        <h3>Emisión</h3>
+        <label class="switch"><input type="checkbox" id="active" ${s.active !== false ? "checked" : ""}> En emisión</label>
+        <div><label class="k">Tele</label><div class="seg" id="screens">${[["h", "Horizontal"], ["v", "Vertical"], ["hv", "Ambas"]].map(([k, l]) => `<button data-v="${k}" class="${(s.screens || "h") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+        <div><label class="k">Duración (segundos)</label><input type="number" id="dur" min="0" max="600" value="${s.dur ?? 15}">
+          <div class="hint">${s.template === "video" ? "0 = el vídeo entero." : "Tiempo que se queda en pantalla."}</div></div>
+        <div class="row2"><div><label class="k">Desde</label><input type="date" id="from" value="${s.from || ""}"></div>
+          <div><label class="k">Hasta</label><input type="date" id="to" value="${s.to || ""}"></div></div>
+        <div class="hint">Por defecto, solo hoy. Cambia "Hasta" para alargarla; vacío = sin límite.</div>
+      </div>
+      <div class="previews"><div><div class="pv-label">Vista previa · tele horizontal</div><div class="pv-row" id="pv"></div></div></div>
+    </div></div>`;
+  bindEditor(); preview();
+}
+
+function preview() {
+  const s = cur(); if (!s) return;
+  const tv = cls => `<div class="tv ${cls}"><div class="scr"><div class="mh"><img src="assets/gelt-logo.png" alt=""><b>VENTAS</b><span>${new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</span></div>
+      <div class="cms-stage cms-preview on">${CMS.render(s)}</div></div></div>`;
+  const scr = s.screens || "h";
+  $("#pv").innerHTML = (scr !== "v" ? tv("h") : "") + (scr !== "h" ? tv("v") : "");
+  $("#pv").previousElementSibling.textContent = { h: "Vista previa · tele horizontal", v: "Vista previa · tele vertical", hv: "Vista previa · horizontal y vertical" }[scr];
+  $("#pv").querySelectorAll("video").forEach(v => { v.muted = true; v.loop = true; v.play().catch(() => {}); });
+  const item = document.querySelector(`.item[data-id="${s.id}"]`);
+  if (item) { item.querySelector(".thumb").innerHTML = mini(s); item.querySelector(".t").textContent = titleOf(s); item.querySelector(".chips").innerHTML = statusChips(s); item.classList.toggle("off", s.active === false); }
+}
+
+function bindEditor() {
+  const s = cur(), form = $("#form");
+  let tmr;
+  const changed = () => { markDirty(); clearTimeout(tmr); tmr = setTimeout(preview, 150); };
+  form.querySelectorAll("[data-k]").forEach(el => el.oninput = el.onchange = () => {
+    s.fields[el.dataset.k] = el.type === "checkbox" ? el.checked : el.value; changed();
+  });
+  $("#active").onchange = e => { s.active = e.target.checked; changed(); };
+  $("#dur").oninput = e => { s.dur = Math.max(0, +e.target.value || 0); changed(); };
+  $("#from").onchange = e => { s.from = e.target.value; changed(); };
+  $("#to").onchange = e => { s.to = e.target.value; changed(); };
+  $("#screens").querySelectorAll("button").forEach(b => b.onclick = () => { s.screens = b.dataset.v; markDirty(); renderEditor(); });
+  form.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => {
+    const k = b.dataset.rm, f = TPL[s.template].fields.find(x => x.k === k);
+    if (f.t === "gallery") s.fields[k].splice(+b.dataset.i, 1); else s.fields[k] = "";
+    markDirty(); renderEditor();
+  });
+  form.querySelectorAll("[data-file]").forEach(inp => inp.onchange = () => uploadFiles([...inp.files], inp.dataset.file, inp.closest(".drop")));
+  form.querySelectorAll("[data-lib]").forEach(b => b.onclick = e => { e.preventDefault(); openLib(b.dataset.lib); });
+  form.querySelectorAll("[data-drop]").forEach(d => {
+    d.ondragover = e => { e.preventDefault(); d.classList.add("over"); };
+    d.ondragleave = () => d.classList.remove("over");
+    d.ondrop = e => { e.preventDefault(); d.classList.remove("over"); uploadFiles([...e.dataTransfer.files], d.dataset.drop, d); };
+  });
+}
+
+function setMedia(k, url) {
+  const s = cur(), f = TPL[s.template].fields.find(x => x.k === k);
+  if (f.t === "gallery") { s.fields[k] = (s.fields[k] || []).concat(url).slice(0, 6); } else s.fields[k] = url;
+  markDirty(); renderEditor();
+}
+function uploadOne(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", "/api/upload");
+    x.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+    x.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    x.onload = () => { let d = {}; try { d = JSON.parse(x.responseText); } catch (e) {} x.status === 200 ? resolve(d) : reject(new Error(d.error || "Error " + x.status)); };
+    x.onerror = () => reject(new Error("Sin conexión"));
+    x.send(file);
+  });
+}
+async function uploadFiles(files, k, dropEl) {
+  files = files.filter(f => /^(image|video)\//.test(f.type));
+  if (!files.length) return toast("Solo fotos o vídeos");
+  const bar = dropEl?.querySelector(".bar"), fill = bar?.querySelector("i");
+  if (bar) bar.hidden = false;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const d = await uploadOne(files[i], p => fill && (fill.style.width = ((i + p) / files.length * 100) + "%"));
+      setMedia(k, d.url);
+    }
+    toast(files.length > 1 ? `${files.length} archivos subidos` : "Archivo subido");
+  } catch (e) { toast("No se pudo subir: " + e.message); if (bar) bar.hidden = true; }
+}
+async function openLib(k) {
+  libTarget = k;
+  const items = await api("GET", "/api/media");
+  $("#libGrid").innerHTML = items.length ? items.map(m => `<div class="it" data-url="${esc(m.url)}"><div class="mthumb">${CMS.isVideo(m.url) ? `<video src="${esc(m.url)}" muted preload="metadata"></video>` : CMS.isAudio(m.url) ? `<div class="cms-ph" style="font-size:28px">♪</div>` : `<img src="${esc(m.url)}" loading="lazy" alt="">`}</div>
+      <small>${esc(m.name.replace(/^\d{8}-\d{6}-/, ""))} · ${(m.size / 1048576).toFixed(1)} MB</small></div>`).join("")
+    : `<div class="empty">Todavía no has subido nada.</div>`;
+  $("#libGrid").querySelectorAll(".it").forEach(el => el.onclick = () => { closeModal("libModal"); setMedia(libTarget, el.dataset.url); });
+  $("#libModal").classList.add("on");
+}
+function dupSlide() {
+  const s = cur(), c = JSON.parse(JSON.stringify(s)); c.id = "s" + Date.now().toString(36);
+  slides.splice(slides.indexOf(s) + 1, 0, c); markDirty(); select(c.id);
+}
+function delSlide() {
+  const s = cur(); if (!confirm(`¿Eliminar "${titleOf(s)}"? Se quitará de las teles al publicar.`)) return;
+  const i = slides.indexOf(s); slides.splice(i, 1); markDirty();
+  selId = slides[Math.min(i, slides.length - 1)]?.id || null; renderList(); renderEditor();
+}
+// ================= Termómetros =================
+const T_COLORS = { rojo: "#FF344C", cian: "#1AB8C4", verde: "#92D050", amarillo: "#FFC000", naranja: "#FF8A3D", morado: "#9B6BFF", rosa: "#FF5FA2" };
+const ymdLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function thisWeek() {
+  const d = new Date(), mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  return [ymdLocal(mon), ymdLocal(fri)];
+}
+async function loadSheetVals() {
+  try { const r = await fetch(CMS.CSV_URL + "&t=" + Date.now(), { cache: "no-store" }); const txt = await r.text(); sheetVals = CMS.sheetValues(txt); kams = CMS.sheetKams(txt); }
+  catch (e) { sheetVals = []; }
+  if (tab === "thermos") { renderThermoList(); if (curT()) { renderThermoEditor(); } }
+}
+const curT = () => thermos.find(t => t.id === tSel);
+function actOf(t) {
+  if (t.src !== "sheet") return +t.act || 0;
+  const v = (sheetVals || []).find(x => CMS.keyOf(x.label) === CMS.keyOf(t.sheetLabel));
+  return v ? v.value : null;
+}
+const nfT = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 });
+const fmtT = (v, u) => v == null ? "—" : nfT.format(v) + (u ? (u === "€" ? " €" : " " + u) : "");
+function thermoChips(t) {
+  const c = [], td = today();
+  if (t.active === false) c.push(`<span class="chip off">Pausado</span>`);
+  else if (t.to && t.to < td) c.push(`<span class="chip off">Terminado</span>`);
+  else if (t.from && t.from > td) c.push(`<span class="chip sched">Empieza ${t.from.slice(8)}/${t.from.slice(5, 7)}</span>`);
+  else c.push(`<span class="chip on">En emisión</span>`);
+  c.push(`<span class="chip">${t.src === "sheet" ? "Sheet" : "Manual"}</span>`);
+  return c.join("");
+}
+function renderThermoList() {
+  const box = $("#items"); if (!box) return;
+  if (!thermos.length) { box.innerHTML = `<div class="card empty">Aún no hay termómetros.<br>Pulsa <b>+ Nuevo</b> para crear el primero.</div>`; return; }
+  box.innerHTML = thermos.map(t => {
+    const a = actOf(t), p = t.obj > 0 && a != null ? Math.min(100, a / t.obj * 100) : 0, col = T_COLORS[t.color] || t.color || T_COLORS.rojo;
+    return `<div class="card item ${t.id === tSel ? "sel" : ""} ${t.active === false ? "off" : ""}" draggable="true" data-id="${t.id}">
+      <div class="grip">⋮⋮</div>
+      <div class="tmini"><i style="height:${p}%;background:${col};box-shadow:0 0 10px ${col}"></i></div>
+      <div style="min-width:0"><div class="t">${esc(t.name || "Sin nombre")}</div>
+        <div class="hint" style="margin:0">${fmtT(a, t.unit)} de ${fmtT(+t.obj, t.unit)} · ${nfT.format(p)}%</div>
+        <div class="chips">${thermoChips(t)}</div></div></div>`;
+  }).join("");
+  box.querySelectorAll(".item").forEach(el => {
+    el.onclick = () => selectThermo(el.dataset.id);
+    el.ondragstart = e => e.dataTransfer.setData("text/plain", el.dataset.id);
+    el.ondragover = e => { e.preventDefault(); el.classList.add("drag-over"); };
+    el.ondragleave = () => el.classList.remove("drag-over");
+    el.ondrop = e => {
+      e.preventDefault(); el.classList.remove("drag-over");
+      const from = thermos.findIndex(t => t.id === e.dataTransfer.getData("text/plain")), to = thermos.findIndex(t => t.id === el.dataset.id);
+      if (from < 0 || to < 0 || from === to) return;
+      const [m] = thermos.splice(from, 1); thermos.splice(to, 0, m); markDirty(); renderThermoList();
+    };
+  });
+}
+function newThermo() {
+  const [from, to] = thisWeek();
+  const t = { id: "t" + Date.now().toString(36), name: "Venta semanal", obj: 100000, act: 0, src: "manual", sheetLabel: "", unit: "€", from, to, color: "rojo", active: true };
+  thermos.unshift(t); markDirty(); selectThermo(t.id);
+}
+function selectThermo(id) { tSel = id; renderThermoList(); renderThermoEditor(); }
+function renderThermoEditor() {
+  const t = curT(), ed = $("#editor"); if (!ed) return;
+  if (!t) { ed.innerHTML = ""; return; }
+  const opts = (sheetVals || []).map(v => `<option value="${esc(v.label)}" ${CMS.keyOf(v.label) === CMS.keyOf(t.sheetLabel) ? "selected" : ""}>${esc(v.label)} — ${esc(v.raw)}</option>`).join("");
+  const missing = t.src === "sheet" && t.sheetLabel && sheetVals && !sheetVals.some(v => CMS.keyOf(v.label) === CMS.keyOf(t.sheetLabel));
+  ed.innerHTML = `<div class="editor">
+    <div class="ed-head"><h2>${esc(t.name || "Termómetro")}</h2>
+      <button class="btn" onclick="dupThermo()">Duplicar</button><button class="btn danger" onclick="delThermo()">Eliminar</button></div>
+    <div class="panes">
+      <div class="card form" id="tform">
+        <h3>Objetivo</h3>
+        <div><label class="k">Nombre</label><input type="text" id="tName" value="${esc(t.name || "")}" placeholder="Ej. Venta semanal"></div>
+        <div class="row2"><div><label class="k">Objetivo</label><input type="number" id="tObj" min="0" step="any" value="${t.obj ?? ""}"></div>
+          <div><label class="k">Unidad</label><input type="text" id="tUnit" value="${esc(t.unit || "")}" placeholder="€, deals, reuniones…"></div></div>
+        <h3>Valor actual</h3>
+        <div class="seg" id="tSrc"><button data-v="manual" class="${t.src !== "sheet" ? "on" : ""}">Lo escribo yo</button><button data-v="sheet" class="${t.src === "sheet" ? "on" : ""}">Desde el Sheet</button></div>
+        ${t.src === "sheet"
+          ? `<div><label class="k">Fila de la pestaña Display</label>
+               <select id="tSheet"><option value="">— Elige una fila —</option>${opts}${missing ? `<option selected value="${esc(t.sheetLabel)}">${esc(t.sheetLabel)} (no encontrada)</option>` : ""}</select>
+               <div class="hint">${sheetVals == null ? "Cargando filas del Sheet…" : "Se actualiza solo. Para tener más opciones, añade en la pestaña Display una fila con la etiqueta en la columna A y el valor en la B (por ejemplo: <b>Venta semanal | 78.400€</b>)."}</div>
+               ${missing ? `<div class="hint" style="color:var(--red)">Esa fila ya no está en el Sheet: el termómetro marcará 0.</div>` : ""}
+               <button class="btn ghost" style="margin-top:6px" onclick="loadSheetVals()">Recargar filas del Sheet</button></div>`
+          : `<div><label class="k">Valor actual</label><input type="number" id="tAct" min="0" step="any" value="${t.act ?? 0}"></div>`}
+        <h3>Periodo</h3>
+        <div class="row2"><div><label class="k">Desde</label><input type="date" id="tFrom" value="${t.from || ""}"></div>
+          <div><label class="k">Hasta</label><input type="date" id="tTo" value="${t.to || ""}"></div></div>
+        <div class="hint">Marca el "ritmo" y los días que quedan. Al pasar la fecha final deja de salir en la tele.</div>
+        <div class="row2"><button class="btn ghost" id="tWeek">Esta semana</button><button class="btn ghost" id="tMonth">Este mes</button></div>
+        <h3>Aspecto y emisión</h3>
+        <div><label class="k">Color</label><div class="swatches" id="tColor">${Object.entries(T_COLORS).map(([k, c]) => `<button title="${k}" data-v="${k}" class="${t.color === k ? "on" : ""}" style="background:${c}"></button>`).join("")}</div></div>
+        <label class="switch"><input type="checkbox" id="tActive" ${t.active !== false ? "checked" : ""}> En emisión</label>
+      </div>
+      <div class="previews"><div><div class="pv-label">Vista previa · tele vertical</div>
+        <div class="tvv"><iframe id="tPrev" src="termometros.html?preview" title="Vista previa"></iframe></div></div></div>
+    </div></div>`;
+  const ch = () => { markDirty(); clearTimeout(ch.t); ch.t = setTimeout(() => { thermoPreview(); renderThermoList(); }, 150); };
+  const bind = (id, fn) => { const el = $(id); if (el) el.oninput = el.onchange = () => { fn(el); ch(); }; };
+  bind("#tName", el => { t.name = el.value; $(".ed-head h2").textContent = el.value || "Termómetro"; });
+  bind("#tObj", el => t.obj = +el.value || 0);
+  bind("#tUnit", el => t.unit = el.value.trim());
+  bind("#tAct", el => t.act = +el.value || 0);
+  bind("#tSheet", el => t.sheetLabel = el.value);
+  bind("#tFrom", el => t.from = el.value);
+  bind("#tTo", el => t.to = el.value);
+  bind("#tActive", el => t.active = el.checked);
+  $("#tSrc").querySelectorAll("button").forEach(b => b.onclick = () => { t.src = b.dataset.v; markDirty(); renderThermoEditor(); renderThermoList(); });
+  $("#tColor").querySelectorAll("button").forEach(b => b.onclick = () => { t.color = b.dataset.v; markDirty(); renderThermoEditor(); renderThermoList(); });
+  $("#tWeek").onclick = () => { [t.from, t.to] = thisWeek(); markDirty(); renderThermoEditor(); renderThermoList(); };
+  $("#tMonth").onclick = () => { const d = new Date(); t.from = ymdLocal(new Date(d.getFullYear(), d.getMonth(), 1)); t.to = ymdLocal(new Date(d.getFullYear(), d.getMonth() + 1, 0)); markDirty(); renderThermoEditor(); renderThermoList(); };
+  $("#tPrev").onload = thermoPreview;
+}
+function thermoPreview() {
+  const t = curT(), f = $("#tPrev"); if (!t || !f || !f.contentWindow) return;
+  // En la vista previa se ve aunque esté pausado o ya terminado
+  f.contentWindow.postMessage({ thermos: [{ ...t, active: true, to: t.to && t.to < today() ? "" : t.to }], values: sheetVals || [] }, "*");
+}
+window.addEventListener("message", e => { if (e.data && e.data.thermoPreviewReady) thermoPreview(); });
+function dupThermo() { const t = curT(), c = JSON.parse(JSON.stringify(t)); c.id = "t" + Date.now().toString(36); c.name += " (copia)"; thermos.splice(thermos.indexOf(t) + 1, 0, c); markDirty(); selectThermo(c.id); }
+function delThermo() {
+  const t = curT(); if (!confirm(`¿Eliminar el termómetro "${t.name}"? Se quitará de la tele al publicar.`)) return;
+  const i = thermos.indexOf(t); thermos.splice(i, 1); markDirty();
+  tSel = thermos[Math.min(i, thermos.length - 1)]?.id || null; renderThermoList(); renderThermoEditor();
+}
+// ================= Integraciones: Pipedrive =================
+let pd = null, pdPipes = null;
+async function renderInteg() {
+  const box = $("#integ"); if (!box) return;
+  try { pd = await api("GET", "/api/pipedrive"); } catch (e) { return; }
+  if (pd.has_token && pdPipes == null) { try { pdPipes = await api("GET", "/api/pipedrive/pipelines"); } catch (e) { pdPipes = { error: e.message }; } }
+  const st = pd.status || {};
+  box.innerHTML = `<div class="card form" style="max-width:760px">
+    <h3>Pipedrive · celebrar ventas automáticamente</h3>
+    <div class="hint" style="margin:0">Cada 45 segundos la Raspberry mira si hay deals <b>ganados</b> nuevos y lanza la celebración en las teles (KAM = propietario del deal, importe = valor del deal).</div>
+    <div><label class="k">API token</label>
+      <div style="display:flex;gap:8px"><input type="password" id="pdTok" autocomplete="off" placeholder="${pd.has_token ? "Guardado · termina en ····" + esc(pd.token_hint) + " (pega otro para cambiarlo)" : "Pega aquí tu API token de Pipedrive"}">
+      <button class="btn primary" id="pdSaveTok">Guardar token</button></div>
+      <div class="hint">Pipedrive → tu foto → Preferencias personales → API. Se guarda solo en la Raspberry y no vuelve a mostrarse.${pd.has_token ? ` · <a href="#" id="pdDelTok" style="color:var(--red)">Borrar token</a>` : ""}</div></div>
+    ${pd.has_token ? `
+    <label class="switch"><input type="checkbox" id="pdOn" ${pd.enabled ? "checked" : ""}> Celebrar automáticamente los deals ganados</label>
+    ${pd.enabled && pd.since ? `<div class="hint" style="margin-top:-8px">Activo desde ${esc(pd.since)} (UTC). Los deals ganados antes no se celebran.</div>` : ""}
+    <div><label class="k">Pipelines que cuentan</label>
+      ${pdPipes && pdPipes.error ? `<div class="err">${esc(pdPipes.error)}</div>` : pdPipes ? `<div class="checks">${pdPipes.map(p => `<label class="switch"><input type="checkbox" class="pdPipe" value="${p.id}" ${!pd.pipelines.length || pd.pipelines.includes(p.id) ? "checked" : ""}> ${esc(p.name)}</label>`).join("")}</div>
+        <div class="hint">Todos marcados = todos los pipelines.</div>` : "Cargando…"}</div>
+    <div class="row2"><div><label class="k">Importe mínimo (€)</label><input type="number" id="pdMin" min="0" step="any" value="${pd.min || 0}"></div>
+      <div><label class="k">Cliente que se muestra</label><select id="pdCli"><option value="org" ${pd.client !== "title" ? "selected" : ""}>Organización</option><option value="title" ${pd.client === "title" ? "selected" : ""}>Título del deal</option></select></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="pdSave">Guardar ajustes</button><button class="btn" id="pdTest">Probar conexión (últimos 5 ganados)</button></div>
+    <div id="pdOut"></div>
+    <h3>Estado</h3>
+    <div class="hint" style="margin:0">Última comprobación: ${st.last_check ? esc(st.last_check) : "—"}${st.last_error ? ` · <span style="color:var(--red)">Error: ${esc(st.last_error)}</span>` : st.last_check ? " · OK" : ""}</div>
+    ${st.last_new && st.last_new.length ? `<div class="hint">Últimas celebradas: ${st.last_new.map(esc).join(" · ")}</div>` : ""}` : ""}
+  </div>`;
+  $("#pdSaveTok").onclick = async () => {
+    const v = $("#pdTok").value.trim(); if (!v) return toast("Pega el token primero");
+    try { await api("PUT", "/api/pipedrive", { token: v }); pdPipes = null; toast("Token guardado"); renderInteg(); } catch (e) { toast(e.message); }
+  };
+  const del = $("#pdDelTok"); if (del) del.onclick = async e => { e.preventDefault(); if (!confirm("¿Borrar el token de Pipedrive?")) return; await api("PUT", "/api/pipedrive", { remove_token: true }); pdPipes = null; renderInteg(); };
+  if (!pd.has_token) return;
+  const settings = () => {
+    const boxes = [...document.querySelectorAll(".pdPipe")];
+    const sel = boxes.filter(b => b.checked).map(b => +b.value);
+    return { enabled: $("#pdOn").checked, pipelines: sel.length === boxes.length ? [] : sel, min: +$("#pdMin").value || 0, client: $("#pdCli").value };
+  };
+  $("#pdSave").onclick = async () => { try { await api("PUT", "/api/pipedrive", settings()); toast("Ajustes guardados"); renderInteg(); } catch (e) { toast(e.message); } };
+  $("#pdOn").onchange = $("#pdSave").onclick;
+  $("#pdTest").onclick = async () => {
+    $("#pdOut").innerHTML = `<div class="hint">Consultando Pipedrive…</div>`;
+    try {
+      const rows = await api("GET", "/api/pipedrive/test");
+      $("#pdOut").innerHTML = rows.length ? `<table class="pdt"><tr><th>Ganado (UTC)</th><th>Deal</th><th>KAM</th><th>Cliente</th><th>Importe</th><th></th></tr>${rows.map(r => `<tr><td>${esc(r.won_time || "")}</td><td>${esc(r.title || "")}</td><td>${esc(r.kam || "—")}</td><td>${esc(r.cliente || "—")}</td><td>${esc(String(r.value ?? ""))} ${esc(r.currency || "")}</td><td>${r.pasa_filtros ? "✓" : "<span style='color:var(--muted)'>filtrado</span>"}</td></tr>`).join("")}</table>` : `<div class="hint">Conexión OK, pero no hay deals ganados todavía.</div>`;
+    } catch (e) { $("#pdOut").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  };
+}
+
+// ================= Celebración de ventas (sonido, duración, volumen) =================
+async function renderCeleb() {
+  const box = $("#celeb"); if (!box) return;
+  const c = await api("GET", "/api/celebration");
+  box.innerHTML = `<div class="card form" style="max-width:760px">
+    <h3>Celebración de ventas</h3>
+    <div class="hint" style="margin:0">Sonido y duración de la pantalla que sale con cada venta (botón "Anunciar venta" o Pipedrive). El sonido suena por la tele horizontal.</div>
+    <div><label class="k">Sonido</label>
+      ${c.sound ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><audio controls src="${esc(c.sound)}" style="height:36px"></audio>
+        <span class="hint" style="margin:0">${esc(c.sound.split("/").pop().replace(/^\d{8}-\d{6}-/, ""))}</span><button class="btn ghost" id="cDel">Quitar (usar el generado)</button></div>`
+        : `<div class="hint" style="margin:0 0 6px">Ahora: ráfaga generada por el navegador. Sube una grabación real (MP3 o WAV) para que suene más realista.</div>`}
+      <div class="drop" id="cDrop" style="margin-top:8px">Arrastra aquí un MP3/WAV o
+        <label class="btn" style="display:inline-block;margin:0 4px">Subir sonido<input type="file" hidden accept="audio/*" id="cFile"></label><div class="bar" hidden><i></i></div></div></div>
+    <div class="row2"><div><label class="k">Duración en pantalla (segundos)</label><input type="number" id="cHold" min="5" max="120" value="${c.hold}"></div>
+      <div><label class="k">Volumen · <span id="cVolV">${Math.round(c.volume * 100)}%</span></label><input type="range" id="cVol" min="0" max="1" step=".05" value="${c.volume}" style="width:100%;accent-color:var(--cyan)"></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="cSave">Guardar</button><button class="btn" id="cTest">Probar aquí</button></div>
+    ${/budgetpixel/.test(c.sound) ? `<div class="hint">Sonido: "Rapid Machine Gun Burst" de <a href="https://budgetpixel.com/sfx/rapid-machine-gun-burst-45fa7437" target="_blank" style="color:var(--cyan)">BudgetPixel AI</a> · licencia CC BY 4.0</div>` : ""}
+  </div>`;
+  const save = async patch => { await api("PUT", "/api/celebration", patch); toast("Guardado · las teles lo usan en menos de un minuto"); renderCeleb(); };
+  $("#cVol").oninput = e => $("#cVolV").textContent = Math.round(e.target.value * 100) + "%";
+  $("#cSave").onclick = () => save({ hold: +$("#cHold").value, volume: +$("#cVol").value });
+  $("#cTest").onclick = () => CMS.celebrateSale({ kam: kams[0] || "Paula", cliente: "Cliente de prueba", importe: 25000 },
+    { sound: true, settings: { sound: c.sound, hold: +$("#cHold").value, volume: +$("#cVol").value } });
+  const del = $("#cDel"); if (del) del.onclick = () => save({ sound: "" });
+  const up = async f => {
+    if (!f || !/^audio\//.test(f.type)) return toast("Elige un archivo de audio (MP3, WAV…)");
+    const bar = $("#cDrop .bar"), fill = bar.querySelector("i"); bar.hidden = false;
+    try { const d = await uploadOne(f, p => fill.style.width = p * 100 + "%"); await save({ sound: d.url }); }
+    catch (e) { toast("No se pudo subir: " + e.message); bar.hidden = true; }
+  };
+  $("#cFile").onchange = e => up(e.target.files[0]);
+  const dz = $("#cDrop");
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+  dz.ondragleave = () => dz.classList.remove("over");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); up(e.dataTransfer.files[0]); };
+}
+
+// ================= Anunciar venta =================
+function openSale() {
+  const sel = $("#sKam");
+  sel.innerHTML = (kams.length ? kams : []).map(k => `<option>${esc(k)}</option>`).join("") + `<option value="__otro">Otro…</option>`;
+  sel.onchange = () => { $("#sKamOther").hidden = sel.value !== "__otro"; };
+  sel.onchange();
+  $("#sCli").value = ""; $("#sImp").value = ""; $("#sErr").textContent = "";
+  $("#saleModal").classList.add("on"); $("#sCli").focus();
+}
+function saleData() {
+  const kam = $("#sKam").value === "__otro" ? $("#sKamOther").value.trim() : $("#sKam").value;
+  return { kam, cliente: $("#sCli").value.trim(), importe: +$("#sImp").value || 0 };
+}
+function testSale() {
+  const d = saleData();
+  CMS.celebrateSale({ kam: d.kam || "Paula", cliente: d.cliente || "Cliente de prueba", importe: d.importe || 25000 }, { sound: true });
+}
+async function sendSale() {
+  const d = saleData();
+  if (!d.kam || d.importe <= 0) return $("#sErr").textContent = "Indica el KAM y un importe mayor que 0";
+  $("#sGo").disabled = true;
+  try { await api("POST", "/api/celebrate", d); closeModal("saleModal"); toast(`¡Venta de ${d.kam} lanzada en las teles!`); }
+  catch (e) { if (e.message !== "login") $("#sErr").textContent = e.message; }
+  finally { $("#sGo").disabled = false; }
+}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/usr/bin/lwrespawn /usr/bin/pcmanfm-pi &
+/usr/bin/lwrespawn /usr/bin/wf-panel-pi &
+/usr/bin/kanshi &
+$HOME/dashboard/kiosk.sh &
+$HOME/dashboard/watchdog.sh &
+/usr/bin/lxsession-xdg-autostart

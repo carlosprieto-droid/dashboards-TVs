@@ -1,0 +1,14 @@
+  <windowRules>
+    <windowRule identifier="Kodi" serverDecoration="yes" />
+    <windowRule identifier="pished_edit_shortcut">
+      <action name="ToggleKeybinds" />
+    </windowRule>
+    <windowRule identifier="chrome-*dashboard*" serverDecoration="no">
+      <action name="MoveToOutput" output="HDMI-A-1" />
+      <action name="ToggleFullscreen" />
+    </windowRule>
+    <windowRule identifier="chrome-*termometros*" serverDecoration="no">
+      <action name="MoveToOutput" output="HDMI-A-2" />
+      <action name="ToggleFullscreen" />
+    </windowRule>
+  </windowRules>

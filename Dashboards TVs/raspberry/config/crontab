@@ -1,0 +1,5 @@
+# Teles: L-V encendido 9:00, apagado 19:00 (HDMI-CEC)
+0 9 * * 1-5 $HOME/dashboard/tv.sh on
+0 19 * * 1-5 $HOME/dashboard/tv.sh off
+# Reinicio diario de mantenimiento
+30 3 * * * sudo -n /sbin/reboot

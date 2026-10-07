@@ -1,0 +1,15 @@
+[
+ {
+  "id": "tmuwuoo1i",
+  "name": "Venta semanal",
+  "obj": 140000,
+  "act": 34000,
+  "src": "manual",
+  "sheetLabel": "",
+  "unit": "€",
+  "from": "2026-10-05",
+  "to": "2026-10-09",
+  "color": "rojo",
+  "active": true
+ }
+]
